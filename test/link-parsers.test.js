@@ -59,7 +59,8 @@ test("builds chained OpenClash config with dialer-proxy", () => {
   const output = buildOpenClashConfig(config);
   const chained = output.proxies.find((proxy) => proxy.name === "US-via-HK");
   assert.equal(chained["dialer-proxy"], "HK-Relay");
-  assert.equal(output["proxy-groups"][0].proxies[0], "US-via-HK");
+  assert.deepEqual(output["proxy-groups"][0].proxies.slice(0, 2), ["AUTO", "US-via-HK"]);
+  assert.equal(output.profile["store-selected"], true);
 });
 
 test("builds multiple US exits through the same HK relay", () => {
@@ -101,10 +102,30 @@ test("builds multiple US exits through the same HK relay", () => {
   const east = output.proxies.find((proxy) => proxy.name === "US-EAST-via-HK");
   assert.equal(west["dialer-proxy"], "HK-Relay");
   assert.equal(east["dialer-proxy"], "HK-Relay");
-  assert.deepEqual(output["proxy-groups"][0].proxies.slice(0, 4), [
+  assert.deepEqual(output["proxy-groups"][0].proxies.slice(1, 5), [
     "US-WEST-via-HK",
     "US-WEST-Direct",
     "US-EAST-via-HK",
     "US-EAST-Direct"
   ]);
+});
+
+test("builds GPT, video and catch-all policy groups", () => {
+  const config = createEmptyConfig();
+  config.nodes.hk = { name: "HK-Relay", type: "ss", server: "hk.example.com", port: 443, cipher: "aes-128-gcm", password: "hk" };
+  config.nodes.exits = [{ id: "us-main", type: "ss", server: "us.example.com", port: 443, cipher: "aes-128-gcm", password: "us" }];
+  config.subscription.groups = [
+    { name: "GPT AI", preset: "gpt", selectionMode: "auto" },
+    { name: "视频", preset: "video", selectionMode: "auto-manual" },
+    { name: "其他", preset: "other", selectionMode: "auto-manual" }
+  ];
+
+  const output = buildOpenClashConfig(config);
+  const gpt = output["proxy-groups"].find((group) => group.name === "GPT AI");
+  const video = output["proxy-groups"].find((group) => group.name === "视频");
+  assert.equal(gpt.type, "url-test");
+  assert.equal(video.type, "select");
+  assert.match(output.rules.join("\n"), /DOMAIN-SUFFIX,openai.com,GPT AI/);
+  assert.match(output.rules.join("\n"), /DOMAIN-SUFFIX,youtube.com,视频/);
+  assert.equal(output.rules.at(-1), "MATCH,其他");
 });

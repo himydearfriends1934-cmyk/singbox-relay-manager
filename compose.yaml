@@ -1,0 +1,18 @@
+services:
+  relaykit:
+    build: .
+    container_name: relaykit
+    restart: unless-stopped
+    environment:
+      RELAYKIT_PASSWORD: ${RELAYKIT_PASSWORD:?请在 .env 中设置面板密码}
+      RELAYKIT_TOKEN: ${RELAYKIT_TOKEN:?请在 .env 中设置订阅令牌}
+    ports:
+      - "${RELAYKIT_PORT:-8787}:8787"
+    volumes:
+      - ./data:/app/data
+      - ./dist:/app/dist
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/').then(r=>{if(r.status!==401)process.exit(1)})"]
+      interval: 30s
+      timeout: 5s
+      retries: 3

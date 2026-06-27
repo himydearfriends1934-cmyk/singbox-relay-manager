@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RelayKit 中转面板</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .settings{grid-template-columns:1.35fr .65fr .65fr .85fr}.preset-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.preset-actions .outline{padding:8px 11px}.group-list{display:grid;gap:12px}.group-item{padding:17px;border:1px solid #294039;background:#0b1613;border-radius:13px}.group-grid{display:grid;grid-template-columns:1fr 1fr 1.2fr auto;gap:12px;align-items:end}.domain-field{margin-top:14px}.domain-field[hidden]{display:none}.runtime-card{margin-bottom:12px;padding:20px 22px;border:1px solid var(--line);border-radius:18px;background:#0c1714}.runtime-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.runtime-head h2{font-size:16px;margin:0}.runtime-state{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px}.runtime-state i{width:8px;height:8px;border-radius:50%;background:#71837c}.runtime-state.online i{background:var(--lime);box-shadow:0 0 12px #c6f36b88}.runtime-state.error i{background:var(--danger)}.runtime-routes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px}.route-item{padding:12px 14px;border:1px solid #263b35;border-radius:10px;background:#09130f}.route-item b{display:block;color:var(--cyan);font-size:12px;margin-bottom:4px}.route-item span{font:13px ui-monospace,monospace;color:#dce8e2}.active-connections{margin-top:10px;color:var(--muted);font-size:12px}.controller-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}@media(max-width:760px){.settings,.group-grid,.controller-grid{grid-template-columns:1fr}.preset-actions{justify-content:flex-start}.card-head.group-head{align-items:flex-start;gap:12px;flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div><span class="eyebrow">RELAYKIT CONTROL</span><h1>链路控制台</h1><p>香港中转与美国落地，集中在一个清爽的面板里。</p></div>
+      <div id="health" class="health"><i></i><span>读取中</span></div>
+    </header>
+
+    <main>
+      <section class="overview">
+        <article><span>香港中转</span><strong id="hkStatus">未配置</strong><small id="hkMeta">等待节点参数</small></article>
+        <article><span>美国落地</span><strong id="exitCount">0 台</strong><small>共享香港中转链路</small></article>
+        <article><span>最后保存</span><strong id="updatedAt">—</strong><small>保存后自动生成订阅</small></article>
+      </section>
+
+      <section class="runtime-card">
+        <div class="runtime-head"><h2>当前连接节点</h2><div id="runtimeState" class="runtime-state"><i></i><span>正在读取</span></div></div>
+        <div id="runtimeRoutes" class="runtime-routes"><div class="route-item"><span>等待 OpenClash 状态…</span></div></div>
+        <div id="activeConnections" class="active-connections"></div>
+      </section>
+
+      <form id="configForm">
+        <section class="card accent-hk">
+          <div class="card-head"><div><span class="step">01 · RELAY</span><h2>香港中转</h2></div><button class="ghost" type="button" id="clearHk">清除</button></div>
+          <p class="hint">粘贴 sing-box 输出的分享链接；留空会保留当前节点。</p>
+          <label>新分享链接<input id="hkLink" type="password" autocomplete="off" placeholder="ss://  vmess://  vless://  trojan://  hy2://  tuic://"></label>
+          <details><summary>手动参数 / 查看当前配置</summary><textarea id="hkJson" rows="9" spellcheck="false" placeholder='{"type":"ss","server":"hk.example.com","port":443,"cipher":"aes-128-gcm","password":"..."}'></textarea></details>
+        </section>
+
+        <section class="card">
+          <div class="card-head"><div><span class="step">02 · EXITS</span><h2>美国落地</h2></div><button class="outline" type="button" id="addExit">＋ 添加落地</button></div>
+          <p class="hint">可添加多台落地。每个 ID 会生成独立的 <code>via-HK</code> 与直连节点。</p>
+          <div id="exitList" class="exit-list"></div>
+        </section>
+
+        <section class="card compact">
+          <div><span class="step">03 · SUBSCRIPTION</span><h2>订阅设置</h2></div>
+          <div class="settings">
+            <label class="switch-row"><span><b>保留美国直连节点</b><small>方便故障排查和延迟对照</small></span><input id="includeDirect" type="checkbox" checked><i></i></label>
+            <label><span>运行模式</span><select id="mode"><option value="rule">规则模式</option><option value="global">全局模式</option></select></label>
+            <label><span>测速间隔（秒）</span><input id="interval" type="number" min="30" value="300"></label>
+            <label><span>默认策略</span><select id="selectionMode"><option value="auto-manual">自动 + 手动选择</option><option value="auto">纯自动优选</option></select></label>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="card-head group-head"><div><span class="step">04 · POLICY GROUPS</span><h2>业务分组</h2></div><div class="preset-actions"><button class="outline add-preset" data-preset="gpt" type="button">＋ GPT AI</button><button class="outline add-preset" data-preset="video" type="button">＋ 视频</button><button class="outline add-preset" data-preset="other" type="button">＋ 其他</button><button class="outline add-preset" data-preset="custom" type="button">＋ 自定义</button></div></div>
+          <p class="hint">GPT AI、视频会自动写入常用域名规则；“其他”接管剩余流量。每组可独立设置选路方式。</p>
+          <div id="groupList" class="group-list"></div>
+        </section>
+
+        <section class="card">
+          <div><span class="step">05 · LIVE STATUS</span><h2>OpenClash 实时状态</h2></div>
+          <p class="hint">填写 Mihomo/OpenClash External Controller 地址。香港 VPS 必须能访问该地址，推荐使用 Tailscale/WireGuard 内网地址。</p>
+          <div class="controller-grid">
+            <label>控制器地址<input id="controllerUrl" type="url" placeholder="http://100.x.x.x:9090"></label>
+            <label>控制器 Secret（如有）<input id="controllerSecret" type="password" autocomplete="new-password" placeholder="留空保留当前 Secret"></label>
+          </div>
+        </section>
+
+        <div class="actionbar"><div id="message">修改只会在点击保存后生效</div><button class="primary" type="submit">保存并生成订阅 <span>→</span></button></div>
+      </form>
+    </main>
+  </div>
+  <template id="exitTemplate"><article class="exit-item"><div class="exit-top"><label>节点 ID<input class="exit-id" pattern="[a-zA-Z0-9._-]+" placeholder="us-west" required></label><button class="remove" type="button">移除</button></div><label>新分享链接<input class="exit-link" type="password" autocomplete="off" placeholder="留空保留当前参数"></label><details><summary>手动参数 / 查看当前配置</summary><textarea class="exit-json" rows="8" spellcheck="false"></textarea></details></article></template>
+  <template id="groupTemplate"><article class="group-item"><div class="group-grid"><label>组名<input class="group-name" maxlength="40" required></label><label>规则类型<select class="group-preset"><option value="gpt">GPT AI</option><option value="video">视频</option><option value="other">其他（兜底）</option><option value="custom">自定义域名</option></select></label><label>选路方式<select class="group-mode"><option value="auto-manual">自动 + 手动选择</option><option value="auto">纯自动优选</option></select></label><button class="remove group-remove" type="button">移除</button></div><label class="domain-field">自定义域名（每行一个）<textarea class="group-domains" rows="3" placeholder="example.com&#10;example.net"></textarea></label></article></template>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>

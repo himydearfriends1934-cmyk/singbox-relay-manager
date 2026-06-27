@@ -1,172 +1,143 @@
-# SingBox Relay Manager
+# RelayKit 中转面板
 
-面向家用 OpenWrt + OpenClash 的小工具：记录香港中转和美国落地两个 sing-box 节点，生成带 `dialer-proxy` 的 OpenClash/Mihomo 配置。终端设备不用装软件，只连家里的软路由。
+面向 OpenWrt + OpenClash 的香港中转 / 美国落地配置面板。浏览器中填入节点分享链接或手动参数，保存后自动生成带 `dialer-proxy` 的 Mihomo/OpenClash 订阅。
 
-## 适用结构
+## 🚀 一键安装入口
+
+在香港 VPS 的 **root 终端**运行：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/himydearfriends1934-cmyk/singbox-relay-manager/master/bootstrap.sh)
+```
+
+脚本启动后的执行顺序：
+
+1. 检查 `curl`、`tar`、`openssl`、Docker 和 Docker Compose。
+2. 发现缺失依赖时，根据 Debian/Ubuntu、CentOS/RHEL 或 Alpine 的包管理器自动安装。
+3. 依赖全部就绪后，进入端口、密码、订阅令牌和节点配置。
+4. 带默认值的选项直接回车即可；节点链接回车表示稍后在面板填写。
+
+> 上面的远程入口本身需要系统已有 `curl` 才能下载脚本；绝大多数 VPS 镜像默认自带。若没有，先执行 `apt-get update && apt-get install -y curl`，之后其余依赖均由安装器自动处理。
 
 ```text
-手机 / 电脑 / 平板
-        ↓
-OpenWrt + OpenClash
-        ↓
-HK-Relay
-        ↓
-US-via-HK
-        ↓
-美国出口
+手机 / 电脑 → OpenWrt + OpenClash → 香港中转 → 美国落地 → 美国出口
 ```
 
-节点安装继续使用你熟悉的 `fscarmen/sing-box` 一键脚本。本项目只负责记录参数、生成订阅和替换机器。
+## 香港 VPS 部署（推荐 Docker）
 
-## 快速开始
+### 安装菜单与卸载
+
+把项目上传或克隆到 VPS 后，以 root 运行菜单：
 
 ```bash
-node src/cli.js init
-node src/cli.js import hk --link "ss://..."
-node src/cli.js import us --link "ss://..."
-node src/cli.js add-us us-west --link "ss://..."
-node src/cli.js add-us us-east --link "ss://..."
-node src/cli.js gen
+bash setup.sh
 ```
 
-生成文件：
+菜单提供：
 
 ```text
-dist/openclash.yaml
+1. 一键安装 / 更新
+2. 一键卸载
 ```
 
-把这个 YAML 导入 OpenClash，日常选择 `PROXY` 组里的 `US-via-HK`。
+安装时会询问面板端口、密码、订阅令牌和节点分享链接。每个带默认值的项目直接回车即可采用推荐设置；节点链接回车则跳过，之后可在面板填写。安装成功后会显示面板地址、密码和完整订阅地址。
 
-也可以安装成全局命令：
+也可以直接执行：
 
 ```bash
-npm link
-relaykit status
+sudo bash install.sh
+sudo bash uninstall.sh
 ```
 
-如果 Windows PowerShell 禁止运行 `npm.ps1`，可以直接继续用：
+安装完成后，任意目录都可以运行 `relaykit-uninstall`。卸载默认询问是否保留 `data/` 与 `dist/`；无人值守并彻底删除可执行：
 
 ```bash
-node src/cli.js status
+sudo relaykit-uninstall --yes --purge
 ```
 
-## 换机器
-
-新 VPS 先用 `fscarmen/sing-box` 一键安装，拿到新节点链接后替换对应角色：
+VPS 安装好 Docker 后，在项目目录执行：
 
 ```bash
-node src/cli.js replace hk --link "ss://..."
-node src/cli.js replace us --link "vmess://..."
-node src/cli.js replace-us us-west --link "vmess://..."
+cp .env.example .env
+nano .env
+docker compose up -d --build
 ```
 
-`replace us` 是默认美国出口 `us-main` 的快捷写法。多台美国出口建议用明确 ID：
-
-```bash
-node src/cli.js add-us us-west --link "ss://..."
-node src/cli.js add-us us-east --link "ss://..."
-node src/cli.js add-us us-la --link "trojan://..."
-```
-
-删除某台美国出口：
-
-```bash
-node src/cli.js remove-us us-la
-```
-
-命令会自动更新：
+然后打开：
 
 ```text
-data/relaykit.json
-dist/openclash.yaml
+http://香港VPS的IP:8787
 ```
 
-OpenClash 重新拉取订阅后，家里所有设备都不用改。
-
-## OpenClash 里怎么用
-
-生成的订阅里默认有 3 个节点：
-
-```text
-HK-Relay    香港中转节点
-US-Direct   美国落地直连，主要用于排查
-US-via-HK   美国落地通过香港拨出，日常使用这个
-```
-
-如果添加多个美国出口，会自动生成：
-
-```text
-US-WEST-via-HK
-US-WEST-Direct
-US-EAST-via-HK
-US-EAST-Direct
-```
-
-默认策略组：
-
-```text
-PROXY
-```
-
-如果你只想强制全部走链式出口，在 OpenClash 里选择 `US-via-HK` 即可。
-
-## 支持导入的链接
-
-当前支持常见分享链接：
-
-```text
-ss://
-vmess://
-vless://
-trojan://
-hysteria2:// / hy2://
-tuic://
-```
-
-如果 fscarmen 输出的是 Clash/Mihomo YAML，也可以用 `set` 手动录入：
-
-```bash
-node src/cli.js set hk --type ss --server 1.2.3.4 --port 443 --cipher aes-128-gcm --password "secret"
-node src/cli.js set us --type vmess --server 5.6.7.8 --port 443 --uuid "uuid" --tls true --network ws --host example.com --path /ws
-node src/cli.js set-us us-west --type ss --server 5.6.7.8 --port 443 --cipher aes-128-gcm --password "secret"
-```
-
-## 本地订阅服务
-
-需要让 OpenClash 用 URL 拉取时，可以临时启动 HTTP 服务：
-
-```bash
-node src/cli.js serve --port 8787 --token "change-me"
-```
+用户名可以任意填写，密码是 `.env` 中的 `RELAYKIT_PASSWORD`。建议在防火墙只放行自己的 IP，正式长期使用时再通过 Caddy/Nginx 配置 HTTPS。
 
 订阅地址：
 
 ```text
-http://你的控制机IP:8787/openclash.yaml?token=change-me
+http://香港VPS的IP:8787/openclash.yaml?token=你的RELAYKIT_TOKEN
 ```
 
-正式使用时更建议放在自己的 HTTPS 域名后面，或者把生成的 `dist/openclash.yaml` 上传到你自己的私有位置。
+`data/` 保存面板配置，`dist/` 保存生成的订阅；两者都通过 volume 持久化，重建容器不会丢失。
 
-## 常用命令
+更新项目后：
 
 ```bash
-node src/cli.js status
-node src/cli.js validate
-node src/cli.js gen --output dist/openclash.yaml
+docker compose up -d --build
 ```
 
-## 设计原则
+查看日志：
 
-- 节点名固定：`HK-Relay`、`US-Exit`、`US-via-HK`
-- 换机器只换参数，不换 OpenClash 里的使用习惯
-- 第一版不做大面板，不做多用户，不接管 fscarmen 安装过程
-- 优先保证配置少、替换快、容易看懂
+```bash
+docker compose logs -f relaykit
+```
+
+## 不使用 Docker
+
+需要 Node.js 20 或更高版本：
+
+```bash
+RELAYKIT_PASSWORD='强密码' \
+RELAYKIT_TOKEN='长随机令牌' \
+node src/panel.js
+```
+
+可选环境变量：`RELAYKIT_HOST`（默认 `0.0.0.0`）、`RELAYKIT_PORT`（默认 `8787`）。对外监听时，面板密码和订阅 token 都是必填项。
+
+## 面板使用
+
+- 香港中转：粘贴一条分享链接，或展开“手动参数”编辑 JSON。
+- 美国落地：支持多台，每台使用唯一 ID，例如 `us-west`、`us-east`。
+- 业务分组：可添加 GPT AI、视频、其他兜底或自定义域名组；每组支持纯自动或“自动 + 手动选择”。
+- 支持 `ss`、`vmess`、`vless`、`trojan`、`hysteria2/hy2`、`tuic` 分享链接。
+- 每次保存都会校验参数；香港与至少一台美国节点齐全时，自动刷新 `dist/openclash.yaml`。
+- 页面密码输入框只是替换链接，留空会保留页面中显示的当前参数。
+- 实时状态：填写 OpenClash/Mihomo 的 `external-controller` 地址与 Secret 后，面板每 3 秒显示各策略组当前节点和活跃连接链路。香港 VPS 需要能访问该控制器，推荐使用 Tailscale/WireGuard 内网地址，不要把控制器无保护地暴露到公网。
+
+### 更换出口 VPS 时不再操作软路由
+
+软路由首次部署时，把固定订阅地址加入 OpenClash，并开启配置订阅定时更新。以后在面板中保留原节点 ID（如 `us-main`），只粘贴新 VPS 的分享链接并保存。订阅 URL、节点显示名和策略组名保持不变，OpenClash 下次自动更新后切换到新出口；已选策略也会通过 `profile.store-selected` 保留。
+
+## 命令行仍然可用
+
+```bash
+node src/cli.js init
+node src/cli.js import hk --link "ss://..."
+node src/cli.js add-us us-west --link "ss://..."
+node src/cli.js gen
+node src/cli.js status
+```
+
+运行测试：
+
+```bash
+node --test test/*.test.js
+```
 
 ## 文件说明
 
 ```text
-data/relaykit.json              真实节点参数，本地生成，不提交
-dist/openclash.yaml             生成给 OpenClash 的订阅，本地生成，不提交
-examples/relaykit.example.json  示例配置
-examples/openclash.example.yaml 示例订阅
+data/relaykit.json   节点参数（含密钥，不提交 Git）
+dist/openclash.yaml  生成的订阅（含密钥，不提交 Git）
+public/              面板前端
+src/panel.js         面板与订阅 HTTP 服务
 ```

@@ -5,6 +5,10 @@ import { toYaml } from "./yaml.js";
 
 const COMPLEX_CHAIN_TYPES = new Set(["hysteria2", "tuic", "wireguard"]);
 const DEFAULT_EXIT_ID = "us-main";
+const GROUP_PRESET_DOMAINS = {
+  gpt: ["openai.com", "chatgpt.com", "oaistatic.com", "oaiusercontent.com"],
+  video: ["youtube.com", "youtu.be", "googlevideo.com", "ytimg.com", "netflix.com", "nflxvideo.net", "disneyplus.com", "hulu.com"]
+};
 
 function cloneProxy(proxy, name) {
   const cloned = structuredClone(proxy);
@@ -140,27 +144,65 @@ export function buildOpenClashConfig(config) {
 
   groupProxies.push(names.hk, "DIRECT");
 
+  const automaticProxies = groupProxies.filter((name) => name !== "DIRECT");
+  const interval = subscription.interval || 300;
+  const testUrl = subscription.testUrl || "http://www.gstatic.com/generate_204";
+  const policyGroups = [];
+
+  function addPolicyGroup(name, selectionMode, automaticName) {
+    if (selectionMode === "auto") {
+      policyGroups.push({ name, type: "url-test", proxies: automaticProxies, url: testUrl, interval });
+      return;
+    }
+    policyGroups.push({ name, type: "select", proxies: [automaticName, ...groupProxies] });
+    policyGroups.push({ name: automaticName, type: "url-test", proxies: automaticProxies, url: testUrl, interval });
+  }
+
+  addPolicyGroup(names.group, subscription.selectionMode, "AUTO");
+  const configuredGroups = Array.isArray(subscription.groups) ? subscription.groups : [];
+  const usedNames = new Set([names.group, "AUTO"]);
+  const enabledGroups = [];
+  for (const [index, group] of configuredGroups.entries()) {
+    if (group?.enabled === false) continue;
+    const name = String(group?.name || `策略组-${index + 1}`).trim();
+    if (!name || usedNames.has(name)) continue;
+    usedNames.add(name);
+    const automaticName = `${name}-AUTO`;
+    usedNames.add(automaticName);
+    addPolicyGroup(name, group.selectionMode, automaticName);
+    enabledGroups.push({ ...group, name });
+  }
+
+  const routedRules = [];
+  for (const group of enabledGroups) {
+    if (group.preset === "other") continue;
+    const domains = group.preset === "custom"
+      ? (Array.isArray(group.domains) ? group.domains : [])
+      : (GROUP_PRESET_DOMAINS[group.preset] || []);
+    for (const domain of domains) {
+      const cleanDomain = String(domain).trim().replace(/^\.+/, "");
+      if (cleanDomain) routedRules.push(`DOMAIN-SUFFIX,${cleanDomain},${group.name}`);
+    }
+  }
+  const otherGroup = enabledGroups.find((group) => group.preset === "other");
+  const baseRules = subscription.rules || ["MATCH,PROXY"];
+  const rules = [
+    ...routedRules,
+    ...baseRules.map((rule) => rule.startsWith("MATCH,") && otherGroup ? `MATCH,${otherGroup.name}` : rule)
+  ];
+
   return dropUndefined({
     "mixed-port": 7890,
     "allow-lan": true,
     mode: subscription.mode || "rule",
     "log-level": subscription.logLevel || "info",
+    profile: {
+      "store-selected": true,
+      "store-fake-ip": true
+    },
     proxies,
-    "proxy-groups": [
-      {
-        name: names.group,
-        type: "select",
-        proxies: groupProxies
-      },
-      {
-        name: "AUTO",
-        type: "url-test",
-        proxies: groupProxies.filter((name) => name !== "DIRECT"),
-        url: subscription.testUrl || "http://www.gstatic.com/generate_204",
-        interval: subscription.interval || 300
-      }
-    ],
-    rules: subscription.rules || ["MATCH,PROXY"]
+    "proxy-groups": policyGroups,
+    rules
   });
 }
 

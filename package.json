@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "node --test test/*.test.js",
-    "start": "node src/cli.js"
+    "start": "node src/panel.js",
+    "cli": "node src/cli.js"
   },
   "engines": {
     "node": ">=20"
