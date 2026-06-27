@@ -182,7 +182,7 @@ copy_application() {
   install -d -m 755 "$INSTALL_DIR" "$INSTALL_DIR/data" "$INSTALL_DIR/dist"
   if [[ "$SOURCE_DIR" != "$INSTALL_DIR" ]]; then
     cp -a "$SOURCE_DIR/src" "$SOURCE_DIR/public" "$INSTALL_DIR/"
-    cp -a "$SOURCE_DIR/package.json" "$SOURCE_DIR/Dockerfile" "$SOURCE_DIR/compose.yaml" "$INSTALL_DIR/"
+    cp -a "$SOURCE_DIR/package.json" "$SOURCE_DIR/package-lock.json" "$SOURCE_DIR/Dockerfile" "$SOURCE_DIR/compose.yaml" "$SOURCE_DIR/.dockerignore" "$INSTALL_DIR/"
     cp -a "$SOURCE_DIR/install.sh" "$SOURCE_DIR/uninstall.sh" "$SOURCE_DIR/setup.sh" "$SOURCE_DIR/info.sh" "$INSTALL_DIR/"
   fi
   chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/setup.sh" "$INSTALL_DIR/info.sh"

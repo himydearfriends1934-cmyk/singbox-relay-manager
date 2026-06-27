@@ -89,6 +89,12 @@ function render(data) {
   $("#selectionMode").value = data.subscription.selectionMode || "auto-manual";
   $("#controllerUrl").value = data.subscription.controller?.url || "";
   $("#controllerSecret").value = "";
+  $("#hkSubscription").value = data.sources?.hkSubscription || "";
+  $("#usSubscription").value = data.sources?.usSubscription || "";
+  const imported = data.sources?.lastImport;
+  $("#importResult").textContent = imported
+    ? `上次导入：香港 ${imported.hk?.used || 0} 个，美国 ${imported.us?.used || 0} 个`
+    : "";
   list.replaceChildren(); data.exits.forEach(addExit);
   groupList.replaceChildren(); (data.subscription.groups || []).forEach(addGroup);
 }
@@ -125,6 +131,11 @@ $("#configForm").addEventListener("submit", async (event) => {
     const hkLink = $("#hkLink").value.trim();
     const hkJson = $("#hkJson").value.trim();
     const body = {
+      subscriptionSources: {
+        hkSubscription: $("#hkSubscription").value.trim(),
+        usSubscription: $("#usSubscription").value.trim()
+      },
+      importSubscriptions: event.submitter?.id === "importSubscriptions",
       subscription: {
         includeDirectUs: $("#includeDirect").checked,
         mode: $("#mode").value,

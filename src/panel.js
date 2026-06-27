@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG_PATH, DEFAULT_NAMES, DEFAULT_OUTPUT_PATH } from "./defaults.js";
 import { parseShareLink } from "./linkParsers.js";
+import { fetchSubscription } from "./subscriptions.js";
 import { getExitLabels, getExitNodes, validateConfig, writeOpenClash } from "./openclash.js";
 import { loadConfig, saveConfig } from "./store.js";
 
@@ -100,6 +101,11 @@ function publicConfig(config) {
         configured: Boolean(controller.url)
       }
     },
+    sources: {
+      hkSubscription: config.sources?.hkSubscription || "",
+      usSubscription: config.sources?.usSubscription || "",
+      lastImport: config.sources?.lastImport || null
+    },
     validation: validateConfig(config)
   };
 }
@@ -184,7 +190,7 @@ function parseNodeInput(input, role, id) {
   return node;
 }
 
-function applyPanelConfig(current, body) {
+async function applyPanelConfig(current, body) {
   const config = structuredClone(current);
   config.nodes ||= { hk: null, us: null, exits: [] };
   if (body.hk) config.nodes.hk = parseNodeInput(body.hk, "hk");
@@ -195,6 +201,36 @@ function applyPanelConfig(current, body) {
       return parseNodeInput(exit, "us", id);
     });
     config.nodes.us = null;
+  }
+  if (body.subscriptionSources && typeof body.subscriptionSources === "object") {
+    config.sources ||= {};
+    config.sources.hkSubscription = String(body.subscriptionSources.hkSubscription || "").trim();
+    config.sources.usSubscription = String(body.subscriptionSources.usSubscription || "").trim();
+  }
+  if (body.importSubscriptions === true) {
+    config.sources ||= {};
+    const summary = { importedAt: new Date().toISOString() };
+    if (config.sources.hkSubscription) {
+      const imported = await fetchSubscription(config.sources.hkSubscription);
+      config.nodes.hk = parseNodeInput({ node: imported.nodes[0] }, "hk");
+      summary.hk = { count: imported.nodes.length, used: 1, format: imported.format };
+    }
+    if (config.sources.usSubscription) {
+      const imported = await fetchSubscription(config.sources.usSubscription);
+      const usedIds = new Set();
+      config.nodes.exits = imported.nodes.map((node, index) => {
+        const baseId = normalizeId(node.name, `us-${index + 1}`);
+        let id = baseId;
+        let suffix = 2;
+        while (usedIds.has(id)) id = `${baseId}-${suffix++}`;
+        usedIds.add(id);
+        return parseNodeInput({ node }, "us", id);
+      });
+      config.nodes.us = null;
+      summary.us = { count: imported.nodes.length, used: imported.nodes.length, format: imported.format };
+    }
+    if (!summary.hk && !summary.us) throw new Error("请至少填写一个订阅地址");
+    config.sources.lastImport = summary;
   }
   config.subscription ||= {};
   if (body.subscription) {
@@ -297,7 +333,7 @@ export function createPanelServer(options = {}) {
         return;
       }
       if (request.method === "PUT" && url.pathname === "/api/config") {
-        const next = applyPanelConfig(loadConfig(configPath), await readBody(request));
+        const next = await applyPanelConfig(loadConfig(configPath), await readBody(request));
         const validation = validateConfig(next);
         saveConfig(next, configPath);
         if (validation.ok) writeOpenClash(next, outputPath);

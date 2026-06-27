@@ -15,6 +15,15 @@ test("panel protects config and saves nodes through the API", async (t) => {
   const configPath = path.join(dir, "relaykit.json");
   const outputPath = path.join(dir, "openclash.yaml");
   const controllerServer = http.createServer((request, response) => {
+    if (request.url === "/hk-sub") {
+      response.end("ss://aes-128-gcm:hkimport@hk-import.example.com:443#HK-Imported"); return;
+    }
+    if (request.url === "/us-sub") {
+      response.end(Buffer.from([
+        "ss://aes-128-gcm:west@west-import.example.com:443#US-West",
+        "trojan://east@east-import.example.com:8443?sni=east-import.example.com#US-East"
+      ].join("\n")).toString("base64")); return;
+    }
     if (request.headers.authorization !== "Bearer controller-secret") {
       response.writeHead(401).end(); return;
     }
@@ -71,4 +80,21 @@ test("panel protects config and saves nodes through the API", async (t) => {
   assert.deepEqual(runtime.groups[0].route, ["PROXY", "AUTO", "US-WEST-via-HK"]);
   assert.equal(runtime.groups[1].name, "GPT AI");
   assert.equal(runtime.connections[0].count, 1);
+
+  const importResponse = await fetch(`${base}/api/config`, {
+    method: "PUT",
+    headers: { authorization: auth("panel-secret"), "content-type": "application/json" },
+    body: JSON.stringify({
+      subscriptionSources: {
+        hkSubscription: `${controllerUrl}/hk-sub`,
+        usSubscription: `${controllerUrl}/us-sub`
+      },
+      importSubscriptions: true
+    })
+  });
+  const imported = await importResponse.json();
+  assert.equal(importResponse.status, 200);
+  assert.equal(imported.hk.server, "hk-import.example.com");
+  assert.deepEqual(imported.exits.map((exit) => exit.id), ["us-west", "us-east"]);
+  assert.equal(imported.sources.lastImport.us.used, 2);
 });
