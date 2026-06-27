@@ -24,6 +24,12 @@ test("panel protects config and saves nodes through the API", async (t) => {
         "trojan://east@east-import.example.com:8443?sni=east-import.example.com#US-East"
       ].join("\n")).toString("base64")); return;
     }
+    if (request.url === "/us-sub-2") {
+      response.end([
+        "ss://aes-128-gcm:west@west-import.example.com:443#US-West-Duplicate",
+        "ss://aes-128-gcm:south@south-import.example.com:9443#US-South"
+      ].join("\n")); return;
+    }
     if (request.headers.authorization !== "Bearer controller-secret") {
       response.writeHead(401).end(); return;
     }
@@ -98,14 +104,19 @@ test("panel protects config and saves nodes through the API", async (t) => {
     body: JSON.stringify({
       subscriptionSources: {
         hkSubscription: `${controllerUrl}/hk-sub`,
-        usSubscription: `${controllerUrl}/us-sub`
+        usSubscription: `${controllerUrl}/us-sub`,
+        usSubscriptions: [`${controllerUrl}/us-sub`, `${controllerUrl}/us-sub-2`]
       },
+      exits: [{ id: "us-manual", link: "ss://aes-128-gcm:manual@manual.example.com:10443#US-Manual" }],
       importSubscriptions: true
     })
   });
   const imported = await importResponse.json();
   assert.equal(importResponse.status, 200);
   assert.equal(imported.hk.server, "hk-import.example.com");
-  assert.deepEqual(imported.exits.map((exit) => exit.id), ["us-west", "us-east"]);
-  assert.equal(imported.sources.lastImport.us.used, 2);
+  assert.deepEqual(imported.exits.map((exit) => exit.id), ["us-manual", "us-west", "us-east", "us-south"]);
+  assert.equal(imported.sources.lastImport.us.subscriptions, 2);
+  assert.equal(imported.sources.lastImport.us.used, 3);
+  assert.equal(imported.sources.lastImport.us.total, 4);
+  assert.deepEqual(imported.sources.usSubscriptions, [`${controllerUrl}/us-sub`, `${controllerUrl}/us-sub-2`]);
 });

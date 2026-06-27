@@ -154,15 +154,22 @@ $("#configForm").addEventListener("submit", async (event) => {
       }
       return { id: $(".exit-id", item).value.trim(), ...(link ? { link } : { node: parseJson(text, "美国节点") }) };
     }).filter(Boolean);
-    if (implicitUsSubscriptions.length > 1) throw new Error("一次只能导入一个美国订阅 URL");
     const implicitHkSubscription = isSubscriptionUrl(hkLink) ? hkLink : "";
-    const implicitUsSubscription = implicitUsSubscriptions[0] || "";
+    const configuredUsSubscription = $("#usSubscription").value.trim();
+    const usSubscriptions = implicitUsSubscriptions.length
+      ? implicitUsSubscriptions
+      : configuredUsSubscription
+        ? (configuredUsSubscription === config.sources?.usSubscription
+            ? config.sources?.usSubscriptions || [configuredUsSubscription]
+            : [configuredUsSubscription])
+        : [];
     const body = {
       subscriptionSources: {
         hkSubscription: implicitHkSubscription || $("#hkSubscription").value.trim(),
-        usSubscription: implicitUsSubscription || $("#usSubscription").value.trim()
+        usSubscription: usSubscriptions[0] || "",
+        usSubscriptions
       },
-      importSubscriptions: event.submitter?.id === "importSubscriptions" || Boolean(implicitHkSubscription || implicitUsSubscription),
+      importSubscriptions: event.submitter?.id === "importSubscriptions" || Boolean(implicitHkSubscription || implicitUsSubscriptions.length),
       subscription: {
         includeDirectUs: $("#includeDirect").checked,
         mode: $("#mode").value,

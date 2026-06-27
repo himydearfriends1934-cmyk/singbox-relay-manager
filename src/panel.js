@@ -105,6 +105,9 @@ function publicConfig(config) {
     sources: {
       hkSubscription: config.sources?.hkSubscription || "",
       usSubscription: config.sources?.usSubscription || "",
+      usSubscriptions: Array.isArray(config.sources?.usSubscriptions)
+        ? config.sources.usSubscriptions
+        : config.sources?.usSubscription ? [config.sources.usSubscription] : [],
       lastImport: config.sources?.lastImport || null
     },
     outputs: { linkCount: sourceLinks(config).length },
@@ -230,7 +233,11 @@ async function applyPanelConfig(current, body) {
   if (body.subscriptionSources && typeof body.subscriptionSources === "object") {
     config.sources ||= {};
     config.sources.hkSubscription = String(body.subscriptionSources.hkSubscription || "").trim();
-    config.sources.usSubscription = String(body.subscriptionSources.usSubscription || "").trim();
+    const usSubscriptions = Array.isArray(body.subscriptionSources.usSubscriptions)
+      ? body.subscriptionSources.usSubscriptions.map((item) => String(item || "").trim()).filter(Boolean).slice(0, 20)
+      : [String(body.subscriptionSources.usSubscription || "").trim()].filter(Boolean);
+    config.sources.usSubscriptions = [...new Set(usSubscriptions)];
+    config.sources.usSubscription = config.sources.usSubscriptions[0] || "";
   }
   if (body.importSubscriptions === true) {
     config.sources ||= {};
@@ -240,11 +247,29 @@ async function applyPanelConfig(current, body) {
       config.nodes.hk = parseNodeInput({ node: imported.nodes[0] }, "hk");
       summary.hk = { count: imported.detectedCount, used: 1, available: imported.nodes.length, filtered: imported.filteredCount, format: imported.format };
     }
-    if (config.sources.usSubscription) {
-      const imported = await fetchSubscription(config.sources.usSubscription);
+    const usSubscriptionUrls = Array.isArray(config.sources.usSubscriptions) && config.sources.usSubscriptions.length
+      ? config.sources.usSubscriptions
+      : config.sources.usSubscription ? [config.sources.usSubscription] : [];
+    if (usSubscriptionUrls.length) {
+      const imports = [];
+      for (const subscriptionUrl of usSubscriptionUrls) imports.push(await fetchSubscription(subscriptionUrl));
+      const existingExits = Array.isArray(config.nodes.exits) ? config.nodes.exits : [];
+      const combinedNodes = [...existingExits];
+      const seenNodes = new Set();
+      const nodeKey = (node) => JSON.stringify([
+        node.type, node.server, Number(node.port), node.uuid || "", node.password || "",
+        node.method || node.cipher || "", node.path || "", node.sni || node.serverName || ""
+      ]);
+      for (const node of existingExits) seenNodes.add(nodeKey(node));
+      for (const imported of imports) {
+        for (const node of imported.nodes) {
+          const key = nodeKey(node);
+          if (!seenNodes.has(key)) { seenNodes.add(key); combinedNodes.push(node); }
+        }
+      }
       const usedIds = new Set();
-      config.nodes.exits = imported.nodes.map((node, index) => {
-        const baseId = normalizeId(node.name, `us-${index + 1}`);
+      config.nodes.exits = combinedNodes.map((node, index) => {
+        const baseId = normalizeId(node.id || node.name, `us-${index + 1}`);
         let id = baseId;
         let suffix = 2;
         while (usedIds.has(id)) id = `${baseId}-${suffix++}`;
@@ -252,7 +277,14 @@ async function applyPanelConfig(current, body) {
         return parseNodeInput({ node }, "us", id);
       });
       config.nodes.us = null;
-      summary.us = { count: imported.detectedCount, used: imported.nodes.length, filtered: imported.filteredCount, format: imported.format };
+      summary.us = {
+        subscriptions: imports.length,
+        count: imports.reduce((sum, imported) => sum + imported.detectedCount, 0),
+        used: combinedNodes.length - existingExits.length,
+        total: combinedNodes.length,
+        filtered: imports.reduce((sum, imported) => sum + imported.filteredCount, 0),
+        format: imports.map((imported) => imported.format).join("+")
+      };
     }
     if (!summary.hk && !summary.us) throw new Error("请至少填写一个订阅地址");
     config.sources.lastImport = summary;
