@@ -1,7 +1,11 @@
 import { parse as parseYaml } from "yaml";
 import { parseShareLink } from "./linkParsers.js";
 
-const SUPPORTED_TYPES = new Set(["ss", "vmess", "vless", "trojan", "hysteria2", "hy2", "tuic"]);
+const SUPPORTED_TYPES = new Set([
+  "ss", "ssr", "vmess", "vless", "trojan", "hysteria", "hysteria2", "hy2", "tuic",
+  "anytls", "mieru", "snell", "socks5", "http", "wireguard", "ssh", "masque",
+  "trusttunnel", "openvpn", "sudoku", "tailscale"
+]);
 const LINK_PATTERN = /(?:ss|vmess|vless|trojan|hysteria2|hy2|tuic):\/\/[^\s"'<>]+/gi;
 const MAX_SUBSCRIPTION_SIZE = 5 * 1024 * 1024;
 
@@ -35,7 +39,7 @@ function nodesFromLinks(text) {
   for (const link of links) {
     try { nodes.push(parseShareLink(link.trim())); } catch { /* Ignore unsupported or malformed entries. */ }
   }
-  return nodes;
+  return { nodes, detectedCount: links.length };
 }
 
 function deduplicate(nodes) {
@@ -52,12 +56,16 @@ export function parseSubscriptionText(input) {
   const text = String(input || "").replace(/^\uFEFF/, "").trim();
   if (!text) throw new Error("订阅内容为空");
 
-  let nodes = nodesFromLinks(text);
+  let parsedLinks = nodesFromLinks(text);
+  let nodes = parsedLinks.nodes;
+  let detectedCount = parsedLinks.detectedCount;
   let format = "links";
   if (nodes.length === 0) {
     const decoded = decodeBase64Subscription(text);
     if (decoded) {
-      nodes = nodesFromLinks(decoded);
+      parsedLinks = nodesFromLinks(decoded);
+      nodes = parsedLinks.nodes;
+      detectedCount = parsedLinks.detectedCount;
       format = "base64";
     }
   }
@@ -65,6 +73,7 @@ export function parseSubscriptionText(input) {
     try {
       const document = parseYaml(text);
       const proxies = Array.isArray(document?.proxies) ? document.proxies : [];
+      detectedCount = proxies.length;
       nodes = proxies.map(normalizeClashNode).filter(Boolean);
       format = "clash-yaml";
     } catch {
@@ -73,7 +82,7 @@ export function parseSubscriptionText(input) {
   }
   nodes = deduplicate(nodes);
   if (nodes.length === 0) throw new Error("订阅中没有识别到支持的节点");
-  return { nodes, format };
+  return { nodes, format, detectedCount, filteredCount: Math.max(0, detectedCount - nodes.length) };
 }
 
 async function readLimitedBody(response) {

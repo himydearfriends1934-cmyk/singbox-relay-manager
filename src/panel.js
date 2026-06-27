@@ -213,7 +213,7 @@ async function applyPanelConfig(current, body) {
     if (config.sources.hkSubscription) {
       const imported = await fetchSubscription(config.sources.hkSubscription);
       config.nodes.hk = parseNodeInput({ node: imported.nodes[0] }, "hk");
-      summary.hk = { count: imported.nodes.length, used: 1, format: imported.format };
+      summary.hk = { count: imported.detectedCount, used: 1, available: imported.nodes.length, filtered: imported.filteredCount, format: imported.format };
     }
     if (config.sources.usSubscription) {
       const imported = await fetchSubscription(config.sources.usSubscription);
@@ -227,7 +227,7 @@ async function applyPanelConfig(current, body) {
         return parseNodeInput({ node }, "us", id);
       });
       config.nodes.us = null;
-      summary.us = { count: imported.nodes.length, used: imported.nodes.length, format: imported.format };
+      summary.us = { count: imported.detectedCount, used: imported.nodes.length, filtered: imported.filteredCount, format: imported.format };
     }
     if (!summary.hk && !summary.us) throw new Error("请至少填写一个订阅地址");
     config.sources.lastImport = summary;

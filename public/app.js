@@ -93,7 +93,7 @@ function render(data) {
   $("#usSubscription").value = data.sources?.usSubscription || "";
   const imported = data.sources?.lastImport;
   $("#importResult").textContent = imported
-    ? `上次导入：香港 ${imported.hk?.used || 0} 个，美国 ${imported.us?.used || 0} 个`
+    ? `上次导入：香港使用 ${imported.hk?.used || 0}/${imported.hk?.count || 0} 个；美国导入 ${imported.us?.used || 0}/${imported.us?.count || 0} 个${imported.us?.filtered ? `（过滤 ${imported.us.filtered} 个）` : ""}`
     : "";
   list.replaceChildren(); data.exits.forEach(addExit);
   groupList.replaceChildren(); (data.subscription.groups || []).forEach(addGroup);

@@ -28,13 +28,19 @@ proxies:
     cipher: aes-128-gcm
     password: secret
   - name: Unsupported
-    type: http
-    server: proxy.example.com
-    port: 8080
+    type: direct
+  - name: AnyTLS
+    type: anytls
+    server: anytls.example.com
+    port: 443
+    password: secret
 `);
   assert.equal(result.format, "clash-yaml");
-  assert.equal(result.nodes.length, 1);
+  assert.equal(result.nodes.length, 2);
   assert.equal(result.nodes[0].name, "US-West");
+  assert.equal(result.nodes[1].type, "anytls");
+  assert.equal(result.detectedCount, 3);
+  assert.equal(result.filteredCount, 1);
 });
 
 test("downloads subscription URLs with Clash-compatible headers", async (t) => {
