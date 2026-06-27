@@ -43,6 +43,37 @@ proxies:
   assert.equal(result.filteredCount, 1);
 });
 
+test("parses plain and base64 sing-box JSON subscriptions", () => {
+  const document = JSON.stringify({ outbounds: [
+    { type: "direct", tag: "direct" },
+    {
+      type: "shadowsocks", tag: "US-SS", server: "ss.example.com", server_port: 443,
+      method: "aes-128-gcm", password: "secret"
+    },
+    {
+      type: "vless", tag: "US-Reality", server: "reality.example.com", server_port: 8443,
+      uuid: "00000000-0000-0000-0000-000000000001",
+      tls: { enabled: true, server_name: "reality.example.com", insecure: false,
+        reality: { public_key: "public-key", short_id: "abcd" }, utls: { fingerprint: "chrome" } },
+      transport: { type: "grpc", service_name: "relay" }
+    }
+  ] });
+
+  const plain = parseSubscriptionText(document);
+  assert.equal(plain.format, "sing-box-json");
+  assert.equal(plain.detectedCount, 3);
+  assert.equal(plain.nodes.length, 2);
+  assert.equal(plain.nodes[0].type, "ss");
+  assert.equal(plain.nodes[0].port, 443);
+  assert.equal(plain.nodes[0].cipher, "aes-128-gcm");
+  assert.equal(plain.nodes[1].servername, "reality.example.com");
+  assert.equal(plain.nodes[1]["grpc-opts"]["grpc-service-name"], "relay");
+
+  const encoded = parseSubscriptionText(Buffer.from(document).toString("base64"));
+  assert.equal(encoded.format, "base64+sing-box-json");
+  assert.equal(encoded.nodes.length, 2);
+});
+
 test("downloads subscription URLs with Clash-compatible headers", async (t) => {
   const server = http.createServer((request, response) => {
     assert.equal(request.headers["user-agent"], "clash.meta");
