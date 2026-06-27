@@ -26,7 +26,7 @@ bash <(curl -fsSL https://cdn.jsdelivr.net/gh/himydearfriends1934-cmyk/singbox-r
 rk
 ```
 
-`rk` 是指向 `/opt/relaykit/setup.sh` 的全局快捷命令，菜单会自动解析真实安装目录，不受当前工作目录影响。
+`rk` 是指向 `/opt/relaykit/setup.sh` 的全局快捷命令，菜单会自动解析真实安装目录，不受当前工作目录影响。选择 `1` 时会先从 GitHub 获取最新版，再重新构建容器；已有节点、端口、面板密码和订阅令牌会自动保留。
 
 如果旧版本曾在 Docker 启动阶段中断，导致提示 `rk: command not found`，可以先执行 `bash /opt/relaykit/setup.sh` 进入菜单；新版安装器会在 Docker 启动前创建 `rk`，后续即使容器启动失败也仍可使用该命令。
 

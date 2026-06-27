@@ -341,7 +341,7 @@ function serveStatic(urlPath, response) {
   if (!target) return false;
   response.writeHead(200, {
     "content-type": target[1],
-    "cache-control": "no-cache",
+    "cache-control": "no-store, max-age=0",
     "x-content-type-options": "nosniff",
     "x-frame-options": "DENY",
     "referrer-policy": "no-referrer"
