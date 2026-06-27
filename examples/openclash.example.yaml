@@ -1,0 +1,70 @@
+mixed-port: 7890
+allow-lan: true
+mode: rule
+log-level: info
+proxies:
+  - name: HK-Relay
+    type: ss
+    server: hk.example.com
+    port: 443
+    cipher: aes-128-gcm
+    password: replace-with-hk-password
+    udp: true
+  - name: US-WEST-via-HK
+    type: ss
+    server: west.example.com
+    port: 443
+    cipher: aes-128-gcm
+    password: replace-with-west-password
+    udp: true
+    dialer-proxy: HK-Relay
+  - name: US-WEST-Direct
+    type: ss
+    server: west.example.com
+    port: 443
+    cipher: aes-128-gcm
+    password: replace-with-west-password
+    udp: true
+  - name: US-EAST-via-HK
+    type: ss
+    server: east.example.com
+    port: 443
+    cipher: aes-128-gcm
+    password: replace-with-east-password
+    udp: true
+    dialer-proxy: HK-Relay
+  - name: US-EAST-Direct
+    type: ss
+    server: east.example.com
+    port: 443
+    cipher: aes-128-gcm
+    password: replace-with-east-password
+    udp: true
+proxy-groups:
+  - name: PROXY
+    type: select
+    proxies:
+      - US-WEST-via-HK
+      - US-WEST-Direct
+      - US-EAST-via-HK
+      - US-EAST-Direct
+      - HK-Relay
+      - DIRECT
+  - name: AUTO
+    type: url-test
+    proxies:
+      - US-WEST-via-HK
+      - US-WEST-Direct
+      - US-EAST-via-HK
+      - US-EAST-Direct
+      - HK-Relay
+    url: "http://www.gstatic.com/generate_204"
+    interval: 300
+rules:
+  - "DOMAIN-SUFFIX,local,DIRECT"
+  - "IP-CIDR,127.0.0.0/8,DIRECT"
+  - "IP-CIDR,10.0.0.0/8,DIRECT"
+  - "IP-CIDR,172.16.0.0/12,DIRECT"
+  - "IP-CIDR,192.168.0.0/16,DIRECT"
+  - "GEOIP,CN,DIRECT"
+  - "MATCH,PROXY"
