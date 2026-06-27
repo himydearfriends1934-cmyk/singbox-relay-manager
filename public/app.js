@@ -15,6 +15,7 @@ function cleanNode(node) {
 function addExit(exit = {}) {
   const item = $("#exitTemplate").content.firstElementChild.cloneNode(true);
   $(".exit-id", item).value = exit.id || "";
+  $(".exit-link", item).value = exit.url || exit.link || "";
   $(".exit-json", item).value = exit.type ? JSON.stringify(cleanNode(exit), null, 2) : "";
   $(".remove", item).onclick = () => item.remove();
   list.append(item);
@@ -77,8 +78,15 @@ async function refreshRuntime() {
 
 function render(data) {
   config = data;
-  if (data.subscriptionUrls?.v2ray) $("#v2rayOutput").href = data.subscriptionUrls.v2ray;
-  if (data.subscriptionUrls?.openclash) $("#openclashOutput").href = data.subscriptionUrls.openclash;
+  const savedSubscriptions = Array.isArray(data.sources?.usSubscriptions) ? data.sources.usSubscriptions : [];
+  if (data.subscriptionUrls?.v2ray) {
+    $("#v2rayOutput").href = data.subscriptionUrls.v2ray;
+    $("#v2rayUrl").textContent = data.subscriptionUrls.v2ray;
+  }
+  if (data.subscriptionUrls?.openclash) {
+    $("#openclashOutput").href = data.subscriptionUrls.openclash;
+    $("#openclashUrl").textContent = data.subscriptionUrls.openclash;
+  }
   $("#health").classList.toggle("ok", data.validation.ok);
   $("#health span").textContent = data.validation.ok ? "配置就绪" : "等待配置";
   $(".download-yaml").classList.toggle("disabled", !data.validation.ok);
@@ -90,7 +98,7 @@ function render(data) {
   });
   $("#hkStatus").textContent = data.hk ? `${data.hk.server}:${data.hk.port}` : "未配置";
   $("#hkMeta").textContent = data.hk ? data.hk.type.toUpperCase() : "等待节点参数";
-  $("#exitCount").textContent = `${data.exits.length} 台`;
+  $("#exitCount").textContent = savedSubscriptions.length ? `${savedSubscriptions.length} 个订阅` : `${data.exits.length} 台`;
   $("#updatedAt").textContent = data.updatedAt ? new Date(data.updatedAt).toLocaleString("zh-CN", { month:"2-digit", day:"2-digit", hour:"2-digit", minute:"2-digit" }) : "—";
   $("#hkJson").value = data.hk ? JSON.stringify(cleanNode(data.hk), null, 2) : "";
   $("#includeDirect").checked = data.subscription.includeDirectUs;
@@ -99,14 +107,20 @@ function render(data) {
   $("#selectionMode").value = data.subscription.selectionMode || "auto-manual";
   $("#controllerUrl").value = data.subscription.controller?.url || "";
   $("#controllerSecret").value = "";
+  $("#hkLink").value = data.sources?.hkSubscription || "";
   $("#hkSubscription").value = data.sources?.hkSubscription || "";
   $("#usSubscription").value = data.sources?.usSubscription || "";
   const imported = data.sources?.lastImport;
   $("#importResult").textContent = imported
     ? `上次导入：香港使用 ${imported.hk?.used || 0}/${imported.hk?.count || 0} 个；美国导入 ${imported.us?.used || 0}/${imported.us?.count || 0} 个${imported.us?.filtered ? `（过滤 ${imported.us.filtered} 个）` : ""}`
     : "";
-  list.replaceChildren(); data.exits.forEach(addExit);
-  if (data.exits.length === 0) addExit({ id: "us-main" });
+  list.replaceChildren();
+  if (savedSubscriptions.length) {
+    savedSubscriptions.forEach((source, index) => addExit(typeof source === "string"
+      ? { id: `us-${index + 1}`, url: source }
+      : { id: source.id || `us-${index + 1}`, url: source.url }));
+  } else data.exits.forEach(addExit);
+  if (list.children.length === 0) addExit({ id: "us-main" });
   groupList.replaceChildren(); (data.subscription.groups || []).forEach(addGroup);
 }
 
