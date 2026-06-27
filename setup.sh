@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_PATH="${BASH_SOURCE[0]}"
+if command -v readlink >/dev/null 2>&1; then
+  RESOLVED_PATH="$(readlink -f "$SCRIPT_PATH" 2>/dev/null || true)"
+  [[ -n "$RESOLVED_PATH" ]] && SCRIPT_PATH="$RESOLVED_PATH"
+fi
+ROOT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 
 printf '\nRelayKit 香港中转管理\n'
 printf '=====================\n'
