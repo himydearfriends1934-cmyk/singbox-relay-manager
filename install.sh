@@ -95,6 +95,24 @@ compose() {
   docker compose "$@"
 }
 
+cleanup_stale_containers() {
+  local stale_ids id name
+  stale_ids="$(docker ps -aq \
+    --filter 'label=com.docker.compose.project=relaykit' \
+    --filter 'label=com.docker.compose.service=relaykit' 2>/dev/null || true)"
+  while read -r id name; do
+    [[ -n "$id" ]] || continue
+    case "$name" in
+      relaykit|*_relaykit) stale_ids="$stale_ids $id" ;;
+    esac
+  done < <(docker ps -a --format '{{.ID}} {{.Names}}' 2>/dev/null || true)
+
+  if [[ -n "${stale_ids//[[:space:]]/}" ]]; then
+    warn "正在清理上次安装遗留的 RelayKit 容器"
+    for id in $stale_ids; do docker rm -f "$id" >/dev/null 2>&1 || true; done
+  fi
+}
+
 random_hex() {
   if command -v openssl >/dev/null 2>&1; then openssl rand -hex "$1"; else od -An -N "$1" -tx1 /dev/urandom | tr -d ' \n'; fi
 }
@@ -189,7 +207,7 @@ install_docker
 prompt_settings
 copy_application
 cd "$INSTALL_DIR"
-docker rm -f relaykit >/dev/null 2>&1 || true
+cleanup_stale_containers
 compose up -d --build
 
 for _ in {1..30}; do
