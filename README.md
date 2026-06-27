@@ -14,8 +14,9 @@ bash <(curl -fsSL https://raw.githubusercontent.com/himydearfriends1934-cmyk/sin
 
 1. 检查 `curl`、`tar`、`openssl`、Docker 和 Docker Compose。
 2. 发现缺失依赖时，根据 Debian/Ubuntu、CentOS/RHEL 或 Alpine 的包管理器自动安装。
-3. 依赖全部就绪后，进入端口、密码、订阅令牌和节点配置。
-4. 带默认值的选项直接回车即可；节点链接回车表示稍后在面板填写。
+3. 依赖全部就绪后，检查面板端口；端口被占用时自动推荐下一个可用端口。
+4. 进入密码、订阅令牌和节点配置。
+5. 带默认值的选项直接回车即可；节点链接回车表示稍后在面板填写。
 
 > 上面的远程入口本身需要系统已有 `curl` 才能下载脚本；绝大多数 VPS 镜像默认自带。若没有，先执行 `apt-get update && apt-get install -y curl`，之后其余依赖均由安装器自动处理。
 

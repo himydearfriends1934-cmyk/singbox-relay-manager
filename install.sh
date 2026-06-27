@@ -77,12 +77,43 @@ random_hex() {
   if command -v openssl >/dev/null 2>&1; then openssl rand -hex "$1"; else od -An -N "$1" -tx1 /dev/urandom | tr -d ' \n'; fi
 }
 
+port_in_use() {
+  local port="$1"
+  if command -v ss >/dev/null 2>&1; then
+    ss -ltnH "sport = :$port" 2>/dev/null | grep -q . && return 0
+  elif command -v netstat >/dev/null 2>&1; then
+    netstat -ltn 2>/dev/null | awk '{print $4}' | grep -Eq "[:.]${port}$" && return 0
+  fi
+  if command -v docker >/dev/null 2>&1; then
+    docker ps --format '{{.Ports}}' 2>/dev/null | grep -Eq "[:.]${port}->" && return 0
+  fi
+  (echo >/dev/tcp/127.0.0.1/"$port") >/dev/null 2>&1 && return 0
+  return 1
+}
+
+next_available_port() {
+  local candidate="$1"
+  while ((candidate <= 65535)); do
+    if ! port_in_use "$candidate"; then printf '%s' "$candidate"; return 0; fi
+    candidate=$((candidate + 1))
+  done
+  return 1
+}
+
 prompt_settings() {
   printf '\n安装参数（直接回车使用括号内默认值）\n'
   printf '%s\n' '--------------------------------------'
   read -r -p '面板端口 [8787]: ' panel_port
   panel_port="${panel_port:-8787}"
   [[ "$panel_port" =~ ^[0-9]+$ ]] && ((panel_port >= 1 && panel_port <= 65535)) || die "端口必须是 1-65535"
+  while port_in_use "$panel_port"; do
+    suggested_port="$(next_available_port "$((panel_port + 1))")" || die "没有找到可用端口"
+    warn "端口 $panel_port 已被占用"
+    read -r -p "改用可用端口 [$suggested_port]: " panel_port
+    panel_port="${panel_port:-$suggested_port}"
+    [[ "$panel_port" =~ ^[0-9]+$ ]] && ((panel_port >= 1 && panel_port <= 65535)) || die "端口必须是 1-65535"
+  done
+  info "面板将使用可用端口 $panel_port"
 
   read -r -s -p '面板密码 [回车自动生成]: ' panel_password; printf '\n'
   if [[ -z "$panel_password" ]]; then panel_password="$(random_hex 12)"; fi
