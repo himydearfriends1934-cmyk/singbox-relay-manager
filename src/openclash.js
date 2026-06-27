@@ -196,6 +196,10 @@ export function buildOpenClashConfig(config) {
     "allow-lan": true,
     mode: subscription.mode || "rule",
     "log-level": subscription.logLevel || "info",
+    profile: {
+      "store-selected": true,
+      "store-fake-ip": true
+    },
     proxies,
     "proxy-groups": policyGroups,
     rules

@@ -83,6 +83,7 @@ function normalizeId(value, fallback = "us-main") {
 }
 
 function publicConfig(config) {
+  const controller = config.subscription?.controller || {};
   return {
     updatedAt: config.updatedAt,
     hk: config.nodes?.hk || null,
@@ -93,10 +94,74 @@ function publicConfig(config) {
       testUrl: config.subscription?.testUrl,
       interval: config.subscription?.interval || 300,
       selectionMode: config.subscription?.selectionMode || "auto-manual",
-      groups: Array.isArray(config.subscription?.groups) ? config.subscription.groups : []
+      groups: Array.isArray(config.subscription?.groups) ? config.subscription.groups : [],
+      controller: {
+        url: controller.url || "",
+        configured: Boolean(controller.url)
+      }
     },
     validation: validateConfig(config)
   };
+}
+
+function controllerUrl(value) {
+  const text = String(value || "").trim().replace(/\/+$/, "");
+  if (!text) return "";
+  const parsed = new URL(text);
+  if (!["http:", "https:"].includes(parsed.protocol)) throw new Error("OpenClash 控制器地址必须使用 http 或 https");
+  return text;
+}
+
+function resolveProxyRoute(name, proxies, visited = new Set()) {
+  if (!name || visited.has(name)) return [];
+  visited.add(name);
+  const proxy = proxies[name];
+  if (!proxy) return [name];
+  const next = proxy.now;
+  return next && next !== name ? [name, ...resolveProxyRoute(next, proxies, visited)] : [name];
+}
+
+async function getRuntimeStatus(config) {
+  const controller = config.subscription?.controller || {};
+  if (!controller.url) {
+    return { configured: false, online: false, message: "请先配置 OpenClash 控制器" };
+  }
+
+  const headers = controller.secret ? { authorization: `Bearer ${controller.secret}` } : {};
+  try {
+    const base = controllerUrl(controller.url);
+    const [proxyResponse, connectionResponse] = await Promise.all([
+      fetch(`${base}/proxies`, { headers, signal: AbortSignal.timeout(5000) }),
+      fetch(`${base}/connections`, { headers, signal: AbortSignal.timeout(5000) }).catch(() => null)
+    ]);
+    if (!proxyResponse.ok) throw new Error(`控制器返回 HTTP ${proxyResponse.status}`);
+    const proxyData = await proxyResponse.json();
+    const proxies = proxyData.proxies || {};
+    const names = { ...DEFAULT_NAMES, ...(config.subscription?.names || {}) };
+    const groupNames = [
+      names.group,
+      ...(Array.isArray(config.subscription?.groups) ? config.subscription.groups.filter((group) => group.enabled !== false).map((group) => group.name) : [])
+    ];
+    const groups = [...new Set(groupNames)].filter((name) => proxies[name]).map((name) => ({
+      name,
+      route: resolveProxyRoute(name, proxies),
+      type: proxies[name].type || ""
+    }));
+
+    let connections = [];
+    if (connectionResponse?.ok) {
+      const connectionData = await connectionResponse.json();
+      const counts = new Map();
+      for (const connection of connectionData.connections || []) {
+        const chain = Array.isArray(connection.chains) ? connection.chains.join(" → ") : "";
+        if (chain) counts.set(chain, (counts.get(chain) || 0) + 1);
+      }
+      connections = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5).map(([chain, count]) => ({ chain, count }));
+    }
+    return { configured: true, online: true, checkedAt: new Date().toISOString(), groups, connections };
+  } catch (error) {
+    return { configured: true, online: false, message: error.name === "TimeoutError" ? "连接 OpenClash 超时" : error.message };
+  }
 }
 
 function parseNodeInput(input, role, id) {
@@ -159,6 +224,16 @@ function applyPanelConfig(current, body) {
         throw new Error("只能添加一个“其他”兜底组");
       }
     }
+    if (body.subscription.controller) {
+      if (body.subscription.controller.clear === true) {
+        delete config.subscription.controller;
+      } else {
+        const previous = config.subscription.controller || {};
+        const url = controllerUrl(body.subscription.controller.url ?? previous.url);
+        const secret = String(body.subscription.controller.secret || previous.secret || "").trim();
+        config.subscription.controller = { url, secret };
+      }
+    }
   }
   return config;
 }
@@ -215,6 +290,10 @@ export function createPanelServer(options = {}) {
 
       if (request.method === "GET" && url.pathname === "/api/config") {
         json(response, 200, publicConfig(loadConfig(configPath)));
+        return;
+      }
+      if (request.method === "GET" && url.pathname === "/api/runtime") {
+        json(response, 200, await getRuntimeStatus(loadConfig(configPath)));
         return;
       }
       if (request.method === "PUT" && url.pathname === "/api/config") {

@@ -2,21 +2,30 @@
 
 面向 OpenWrt + OpenClash 的香港中转 / 美国落地配置面板。浏览器中填入节点分享链接或手动参数，保存后自动生成带 `dialer-proxy` 的 Mihomo/OpenClash 订阅。
 
+## 🚀 一键安装入口
+
+在香港 VPS 的 **root 终端**运行：
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/himydearfriends1934-cmyk/singbox-relay-manager/master/bootstrap.sh)
+```
+
+脚本启动后的执行顺序：
+
+1. 检查 `curl`、`tar`、`openssl`、Docker 和 Docker Compose。
+2. 发现缺失依赖时，根据 Debian/Ubuntu、CentOS/RHEL 或 Alpine 的包管理器自动安装。
+3. 依赖全部就绪后，进入端口、密码、订阅令牌和节点配置。
+4. 带默认值的选项直接回车即可；节点链接回车表示稍后在面板填写。
+
+> 上面的远程入口本身需要系统已有 `curl` 才能下载脚本；绝大多数 VPS 镜像默认自带。若没有，先执行 `apt-get update && apt-get install -y curl`，之后其余依赖均由安装器自动处理。
+
 ```text
 手机 / 电脑 → OpenWrt + OpenClash → 香港中转 → 美国落地 → 美国出口
 ```
 
 ## 香港 VPS 部署（推荐 Docker）
 
-### 一键安装 / 卸载
-
-在香港 VPS 的 root 终端直接执行：
-
-```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/himydearfriends1934-cmyk/singbox-relay-manager/master/bootstrap.sh)
-```
-
-这个命令会下载最新版并打开安装/卸载菜单。请使用上面的 `<(...)` 写法，安装过程才能正常接收键盘输入。
+### 安装菜单与卸载
 
 把项目上传或克隆到 VPS 后，以 root 运行菜单：
 
@@ -102,6 +111,11 @@ node src/panel.js
 - 支持 `ss`、`vmess`、`vless`、`trojan`、`hysteria2/hy2`、`tuic` 分享链接。
 - 每次保存都会校验参数；香港与至少一台美国节点齐全时，自动刷新 `dist/openclash.yaml`。
 - 页面密码输入框只是替换链接，留空会保留页面中显示的当前参数。
+- 实时状态：填写 OpenClash/Mihomo 的 `external-controller` 地址与 Secret 后，面板每 3 秒显示各策略组当前节点和活跃连接链路。香港 VPS 需要能访问该控制器，推荐使用 Tailscale/WireGuard 内网地址，不要把控制器无保护地暴露到公网。
+
+### 更换出口 VPS 时不再操作软路由
+
+软路由首次部署时，把固定订阅地址加入 OpenClash，并开启配置订阅定时更新。以后在面板中保留原节点 ID（如 `us-main`），只粘贴新 VPS 的分享链接并保存。订阅 URL、节点显示名和策略组名保持不变，OpenClash 下次自动更新后切换到新出口；已选策略也会通过 `profile.store-selected` 保留。
 
 ## 命令行仍然可用
 

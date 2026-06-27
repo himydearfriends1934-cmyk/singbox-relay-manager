@@ -2,6 +2,7 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const list = $("#exitList");
 const groupList = $("#groupList");
 let config;
+let runtimeBusy = false;
 
 function cleanNode(node) {
   if (!node) return null;
@@ -38,6 +39,41 @@ function showMessage(text, type = "") {
   const el = $("#message"); el.textContent = text; el.className = type;
 }
 
+function routeItem(title, value) {
+  const item = document.createElement("div");
+  item.className = "route-item";
+  const label = document.createElement("b"); label.textContent = title;
+  const route = document.createElement("span"); route.textContent = value;
+  item.append(label, route);
+  return item;
+}
+
+async function refreshRuntime() {
+  if (runtimeBusy) return;
+  runtimeBusy = true;
+  const state = $("#runtimeState");
+  try {
+    const response = await fetch("/api/runtime", { cache: "no-store" });
+    const runtime = await response.json();
+    state.className = `runtime-state ${runtime.online ? "online" : runtime.configured ? "error" : ""}`;
+    $("span", state).textContent = runtime.online ? "实时在线" : runtime.message || "未连接";
+    const routes = $("#runtimeRoutes");
+    routes.replaceChildren();
+    if (runtime.online && runtime.groups?.length) {
+      runtime.groups.forEach((group) => routes.append(routeItem(group.name, group.route.join(" → "))));
+    } else {
+      routes.append(routeItem("状态", runtime.online ? "控制器在线，尚未发现匹配的策略组" : runtime.message || "未配置控制器"));
+    }
+    const connections = runtime.connections || [];
+    $("#activeConnections").textContent = connections.length
+      ? `活跃连接：${connections.map((item) => `${item.chain} (${item.count})`).join(" · ")}`
+      : runtime.online ? "当前没有活跃连接" : "";
+  } catch {
+    state.className = "runtime-state error";
+    $("span", state).textContent = "状态读取失败";
+  } finally { runtimeBusy = false; }
+}
+
 function render(data) {
   config = data;
   $("#health").classList.toggle("ok", data.validation.ok);
@@ -51,6 +87,8 @@ function render(data) {
   $("#mode").value = data.subscription.mode;
   $("#interval").value = data.subscription.interval;
   $("#selectionMode").value = data.subscription.selectionMode || "auto-manual";
+  $("#controllerUrl").value = data.subscription.controller?.url || "";
+  $("#controllerSecret").value = "";
   list.replaceChildren(); data.exits.forEach(addExit);
   groupList.replaceChildren(); (data.subscription.groups || []).forEach(addGroup);
 }
@@ -97,7 +135,11 @@ $("#configForm").addEventListener("submit", async (event) => {
           preset: $(".group-preset", item).value,
           selectionMode: $(".group-mode", item).value,
           domains: $(".group-domains", item).value
-        }))
+        })),
+        controller: {
+          url: $("#controllerUrl").value.trim(),
+          secret: $("#controllerSecret").value.trim()
+        }
       },
       exits: [...list.children].map((item) => {
         const link = $(".exit-link", item).value.trim();
@@ -113,8 +155,10 @@ $("#configForm").addEventListener("submit", async (event) => {
     if (!response.ok) throw new Error(result.error || "保存失败");
     $("#hkLink").value = ""; delete $("#hkJson").dataset.remove; render(result);
     showMessage(result.generated ? "已保存，订阅已重新生成" : "已保存，补全节点后即可生成订阅", "success");
+    refreshRuntime();
   } catch (error) { showMessage(error.message, "error"); }
   finally { button.disabled = false; }
 });
 
-load().catch((error) => showMessage(error.message, "error"));
+load().then(refreshRuntime).catch((error) => showMessage(error.message, "error"));
+setInterval(refreshRuntime, 3000);

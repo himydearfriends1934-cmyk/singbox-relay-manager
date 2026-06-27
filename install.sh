@@ -14,23 +14,59 @@ if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
   die "请使用 root 运行：sudo bash install.sh"
 fi
 
-install_docker() {
-  if command -v docker >/dev/null 2>&1; then return; fi
-  warn "未检测到 Docker，正在自动安装……"
+install_packages() {
   if command -v apt-get >/dev/null 2>&1; then
     apt-get update
-    DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
-    DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin 2>/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose
+    DEBIAN_FRONTEND=noninteractive apt-get install -y "$@"
   elif command -v dnf >/dev/null 2>&1; then
-    dnf install -y docker docker-compose-plugin
+    dnf install -y "$@"
   elif command -v yum >/dev/null 2>&1; then
-    yum install -y docker docker-compose-plugin
+    yum install -y "$@"
   elif command -v apk >/dev/null 2>&1; then
-    apk add --no-cache docker docker-cli-compose
+    apk add --no-cache "$@"
   else
-    die "无法识别系统包管理器，请先安装 Docker 后重试"
+    die "无法识别系统包管理器，不能自动安装依赖"
+  fi
+}
+
+check_base_dependencies() {
+  printf '\n正在检查安装依赖……\n'
+  local missing=()
+  for command_name in curl tar openssl; do
+    command -v "$command_name" >/dev/null 2>&1 || missing+=("$command_name")
+  done
+  if ((${#missing[@]} > 0)); then
+    warn "缺少依赖：${missing[*]}，正在自动安装"
+    install_packages ca-certificates "${missing[@]}"
+  fi
+  for command_name in curl tar openssl; do
+    command -v "$command_name" >/dev/null 2>&1 || die "依赖安装失败：$command_name"
+  done
+  info "基础依赖检查完成"
+}
+
+has_compose() {
+  docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1
+}
+
+install_docker() {
+  if ! command -v docker >/dev/null 2>&1; then
+    warn "未检测到 Docker，正在自动安装"
+    if command -v apt-get >/dev/null 2>&1; then install_packages docker.io
+    elif command -v apk >/dev/null 2>&1; then install_packages docker
+    else install_packages docker; fi
+  fi
+  if ! has_compose; then
+    warn "未检测到 Docker Compose，正在自动安装"
+    if command -v apt-get >/dev/null 2>&1; then
+      DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin 2>/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose
+    elif command -v apk >/dev/null 2>&1; then install_packages docker-cli-compose
+    else install_packages docker-compose-plugin; fi
   fi
   if command -v systemctl >/dev/null 2>&1; then systemctl enable --now docker; else service docker start; fi
+  command -v docker >/dev/null 2>&1 || die "Docker 安装失败"
+  has_compose || die "Docker Compose 安装失败"
+  info "Docker 与 Docker Compose 已就绪"
 }
 
 compose() {
@@ -95,8 +131,8 @@ import_nodes() {
   done
 }
 
+check_base_dependencies
 install_docker
-command -v docker >/dev/null 2>&1 || die "Docker 安装失败"
 prompt_settings
 copy_application
 cd "$INSTALL_DIR"

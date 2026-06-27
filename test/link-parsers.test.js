@@ -60,6 +60,7 @@ test("builds chained OpenClash config with dialer-proxy", () => {
   const chained = output.proxies.find((proxy) => proxy.name === "US-via-HK");
   assert.equal(chained["dialer-proxy"], "HK-Relay");
   assert.deepEqual(output["proxy-groups"][0].proxies.slice(0, 2), ["AUTO", "US-via-HK"]);
+  assert.equal(output.profile["store-selected"], true);
 });
 
 test("builds multiple US exits through the same HK relay", () => {

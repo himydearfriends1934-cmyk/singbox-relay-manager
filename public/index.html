@@ -6,7 +6,7 @@
   <title>RelayKit 中转面板</title>
   <link rel="stylesheet" href="/styles.css">
   <style>
-    .settings{grid-template-columns:1.35fr .65fr .65fr .85fr}.preset-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.preset-actions .outline{padding:8px 11px}.group-list{display:grid;gap:12px}.group-item{padding:17px;border:1px solid #294039;background:#0b1613;border-radius:13px}.group-grid{display:grid;grid-template-columns:1fr 1fr 1.2fr auto;gap:12px;align-items:end}.domain-field{margin-top:14px}.domain-field[hidden]{display:none}@media(max-width:760px){.settings,.group-grid{grid-template-columns:1fr}.preset-actions{justify-content:flex-start}.card-head.group-head{align-items:flex-start;gap:12px;flex-direction:column}}
+    .settings{grid-template-columns:1.35fr .65fr .65fr .85fr}.preset-actions{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}.preset-actions .outline{padding:8px 11px}.group-list{display:grid;gap:12px}.group-item{padding:17px;border:1px solid #294039;background:#0b1613;border-radius:13px}.group-grid{display:grid;grid-template-columns:1fr 1fr 1.2fr auto;gap:12px;align-items:end}.domain-field{margin-top:14px}.domain-field[hidden]{display:none}.runtime-card{margin-bottom:12px;padding:20px 22px;border:1px solid var(--line);border-radius:18px;background:#0c1714}.runtime-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}.runtime-head h2{font-size:16px;margin:0}.runtime-state{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:12px}.runtime-state i{width:8px;height:8px;border-radius:50%;background:#71837c}.runtime-state.online i{background:var(--lime);box-shadow:0 0 12px #c6f36b88}.runtime-state.error i{background:var(--danger)}.runtime-routes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:9px}.route-item{padding:12px 14px;border:1px solid #263b35;border-radius:10px;background:#09130f}.route-item b{display:block;color:var(--cyan);font-size:12px;margin-bottom:4px}.route-item span{font:13px ui-monospace,monospace;color:#dce8e2}.active-connections{margin-top:10px;color:var(--muted);font-size:12px}.controller-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:16px}@media(max-width:760px){.settings,.group-grid,.controller-grid{grid-template-columns:1fr}.preset-actions{justify-content:flex-start}.card-head.group-head{align-items:flex-start;gap:12px;flex-direction:column}}
   </style>
 </head>
 <body>
@@ -21,6 +21,12 @@
         <article><span>香港中转</span><strong id="hkStatus">未配置</strong><small id="hkMeta">等待节点参数</small></article>
         <article><span>美国落地</span><strong id="exitCount">0 台</strong><small>共享香港中转链路</small></article>
         <article><span>最后保存</span><strong id="updatedAt">—</strong><small>保存后自动生成订阅</small></article>
+      </section>
+
+      <section class="runtime-card">
+        <div class="runtime-head"><h2>当前连接节点</h2><div id="runtimeState" class="runtime-state"><i></i><span>正在读取</span></div></div>
+        <div id="runtimeRoutes" class="runtime-routes"><div class="route-item"><span>等待 OpenClash 状态…</span></div></div>
+        <div id="activeConnections" class="active-connections"></div>
       </section>
 
       <form id="configForm">
@@ -51,6 +57,15 @@
           <div class="card-head group-head"><div><span class="step">04 · POLICY GROUPS</span><h2>业务分组</h2></div><div class="preset-actions"><button class="outline add-preset" data-preset="gpt" type="button">＋ GPT AI</button><button class="outline add-preset" data-preset="video" type="button">＋ 视频</button><button class="outline add-preset" data-preset="other" type="button">＋ 其他</button><button class="outline add-preset" data-preset="custom" type="button">＋ 自定义</button></div></div>
           <p class="hint">GPT AI、视频会自动写入常用域名规则；“其他”接管剩余流量。每组可独立设置选路方式。</p>
           <div id="groupList" class="group-list"></div>
+        </section>
+
+        <section class="card">
+          <div><span class="step">05 · LIVE STATUS</span><h2>OpenClash 实时状态</h2></div>
+          <p class="hint">填写 Mihomo/OpenClash External Controller 地址。香港 VPS 必须能访问该地址，推荐使用 Tailscale/WireGuard 内网地址。</p>
+          <div class="controller-grid">
+            <label>控制器地址<input id="controllerUrl" type="url" placeholder="http://100.x.x.x:9090"></label>
+            <label>控制器 Secret（如有）<input id="controllerSecret" type="password" autocomplete="new-password" placeholder="留空保留当前 Secret"></label>
+          </div>
         </section>
 
         <div class="actionbar"><div id="message">修改只会在点击保存后生效</div><button class="primary" type="submit">保存并生成订阅 <span>→</span></button></div>
