@@ -44,3 +44,4 @@ else
 fi
 rm -f /usr/local/bin/relaykit-uninstall
 rm -f /usr/local/bin/relaykit-info
+rm -f /usr/local/bin/rk

@@ -178,6 +178,7 @@ import_nodes
 
 ln -sf "$INSTALL_DIR/uninstall.sh" /usr/local/bin/relaykit-uninstall
 ln -sf "$INSTALL_DIR/info.sh" /usr/local/bin/relaykit-info
+ln -sf "$INSTALL_DIR/setup.sh" /usr/local/bin/rk
 bash "$INSTALL_DIR/info.sh" >"$INSTALL_DIR/relaykit-info.txt"
 chmod 600 "$INSTALL_DIR/relaykit-info.txt"
 
@@ -186,5 +187,6 @@ info "RelayKit 安装完成"
 cat "$INSTALL_DIR/relaykit-info.txt"
 printf '卸载命令：  relaykit-uninstall\n'
 printf '查看信息：  relaykit-info\n'
+printf '快捷菜单：  rk\n'
 printf '信息文件：  %s/relaykit-info.txt\n' "$INSTALL_DIR"
 printf '\n请保存以上信息，并在 VPS 防火墙放行 TCP 端口 %s。\n' "$panel_port"
