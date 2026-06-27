@@ -101,3 +101,26 @@ test("downloads subscription URLs with Clash-compatible headers", async (t) => {
   const result = await fetchSubscription(`http://127.0.0.1:${server.address().port}/sub`);
   assert.equal(result.nodes[0].server, "sub.example.com");
 });
+
+test("downloads nodes referenced by Clash proxy-providers", async (t) => {
+  const server = http.createServer((request, response) => {
+    if (request.url === "/provider.yaml") {
+      response.end(`payload:\n  - name: Provider-US\n    type: ss\n    server: provider.example.com\n    port: 443\n    cipher: aes-128-gcm\n    password: secret\n`);
+      return;
+    }
+    response.end(`
+proxy-providers:
+  airport:
+    type: http
+    url: http://127.0.0.1:${server.address().port}/provider.yaml
+dns:
+  nameserver: [tls://1.1.1.1, https://dns.example/dns-query]
+`);
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => server.close());
+  const result = await fetchSubscription(`http://127.0.0.1:${server.address().port}/config.yaml`);
+  assert.equal(result.format, "clash-providers");
+  assert.equal(result.providerCount, 1);
+  assert.equal(result.nodes[0].server, "provider.example.com");
+});

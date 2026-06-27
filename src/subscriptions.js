@@ -176,12 +176,15 @@ export function parseSubscriptionText(input) {
   if (nodes.length === 0) {
     try {
       const document = parseYaml(candidate);
-      const proxies = Array.isArray(document?.proxies) ? document.proxies : [];
+      const proxies = Array.isArray(document?.proxies)
+        ? document.proxies
+        : Array.isArray(document?.payload) ? document.payload : [];
       const outbounds = Array.isArray(document?.outbounds) ? document.outbounds : [];
       if (proxies.length) {
         detectedCount = proxies.length;
         nodes = proxies.map(normalizeClashNode).filter(Boolean);
-        format = candidate === text ? "clash-yaml" : "base64+clash-yaml";
+        const providerSuffix = Array.isArray(document?.payload) ? "provider-yaml" : "clash-yaml";
+        format = candidate === text ? providerSuffix : `base64+${providerSuffix}`;
       } else if (outbounds.length) {
         detectedCount = outbounds.length;
         nodes = outbounds.map(normalizeSingBoxNode).filter(Boolean);
@@ -228,6 +231,40 @@ export async function fetchSubscription(subscriptionUrl) {
   try {
     return parseSubscriptionText(text);
   } catch (error) {
+    try {
+      const document = parseYaml(text);
+      const providers = document?.["proxy-providers"] && typeof document["proxy-providers"] === "object"
+        ? Object.values(document["proxy-providers"])
+            .map((provider) => provider && typeof provider === "object" ? String(provider.url || "").trim() : "")
+            .filter(Boolean)
+            .slice(0, 20)
+        : [];
+      if (providers.length) {
+        const imported = [];
+        for (const providerUrl of providers) {
+          const nestedUrl = new URL(providerUrl, url);
+          if (!["http:", "https:"].includes(nestedUrl.protocol)) continue;
+          try {
+            const nestedResponse = await fetch(nestedUrl, {
+              headers: { "user-agent": "clash.meta", accept: "text/yaml,text/plain,*/*" },
+              signal: AbortSignal.timeout(15000)
+            });
+            if (!nestedResponse.ok) continue;
+            imported.push(parseSubscriptionText(await readLimitedBody(nestedResponse)));
+          } catch { /* Keep trying the remaining providers. */ }
+        }
+        const nodes = deduplicate(imported.flatMap((item) => item.nodes));
+        if (nodes.length) {
+          return {
+            nodes,
+            format: "clash-providers",
+            detectedCount: imported.reduce((sum, item) => sum + item.detectedCount, 0),
+            filteredCount: imported.reduce((sum, item) => sum + item.filteredCount, 0),
+            providerCount: providers.length
+          };
+        }
+      }
+    } catch { /* The safe diagnostic below describes unsupported top-level content. */ }
     const contentType = String(response.headers.get("content-type") || "unknown").split(";", 1)[0];
     console.warn(`[RelayKit safe diagnostic] status=${response.status} content-type=${contentType} bytes=${Buffer.byteLength(text)} detail=${error.message}`);
     throw error;
