@@ -140,42 +140,35 @@ next_available_port() {
   return 1
 }
 
-prompt_settings() {
-  printf '\n安装参数（直接回车使用括号内默认值）\n'
-  printf '%s\n' '--------------------------------------'
-  read -r -p '面板端口 [8787]: ' panel_port
-  panel_port="${panel_port:-8787}"
-  [[ "$panel_port" =~ ^[0-9]+$ ]] && ((panel_port >= 1 && panel_port <= 65535)) || die "端口必须是 1-65535"
-  while port_in_use "$panel_port"; do
-    suggested_port="$(next_available_port "$((panel_port + 1))")" || die "没有找到可用端口"
-    warn "端口 $panel_port 已被占用"
-    read -r -p "改用可用端口 [$suggested_port]: " panel_port
-    panel_port="${panel_port:-$suggested_port}"
-    [[ "$panel_port" =~ ^[0-9]+$ ]] && ((panel_port >= 1 && panel_port <= 65535)) || die "端口必须是 1-65535"
-  done
-  info "面板将使用可用端口 $panel_port"
+configure_settings() {
+  hk_link="${RELAYKIT_HK_LINK:-}"
+  us_ids=(); us_links=()
+  [[ -n "${RELAYKIT_US_LINK:-}" ]] && { us_ids+=("${RELAYKIT_US_ID:-us-main}"); us_links+=("$RELAYKIT_US_LINK"); }
 
-  read -r -s -p '面板密码 [回车自动生成]: ' panel_password; printf '\n'
-  if [[ -z "$panel_password" ]]; then panel_password="$(random_hex 12)"; fi
-  [[ "$panel_password" =~ ^[A-Za-z0-9._@%+=:-]+$ ]] || die "面板密码只能使用字母、数字和 ._@%+=:-"
-  read -r -p '订阅令牌 [回车自动生成]: ' subscription_token
-  subscription_token="${subscription_token:-$(random_hex 20)}"
-  [[ "$subscription_token" =~ ^[A-Za-z0-9._~-]+$ ]] || die "订阅令牌只能使用字母、数字和 ._~-"
-
-  read -r -p '安装后立即录入节点？[Y/n]: ' configure_nodes
-  configure_nodes="${configure_nodes:-Y}"
-  hk_link=''; us_ids=(); us_links=()
-  if [[ "$configure_nodes" =~ ^[Yy]$ ]]; then
-    read -r -p '香港中转分享链接 [回车跳过，稍后在面板填写]: ' hk_link
-    while true; do
-      read -r -p '美国落地分享链接 [回车结束节点录入]: ' us_link
-      [[ -z "$us_link" ]] && break
-      read -r -p '该落地节点 ID [us-main]: ' us_id
-      us_ids+=("${us_id:-us-main}"); us_links+=("$us_link")
-      read -r -p '继续添加美国落地？[y/N]: ' add_more
-      [[ "${add_more:-N}" =~ ^[Yy]$ ]] || break
+  if [[ -f "$INSTALL_DIR/.env" ]]; then
+    # Preserve credentials and port during unattended updates.
+    set -a
+    # shellcheck disable=SC1090
+    source "$INSTALL_DIR/.env"
+    set +a
+    panel_port="${RELAYKIT_PORT:-8787}"
+    panel_password="${RELAYKIT_PASSWORD:-$(random_hex 12)}"
+    subscription_token="${RELAYKIT_TOKEN:-$(random_hex 20)}"
+    info "检测到已有安装，自动保留端口、密码和订阅令牌"
+  else
+    panel_port="${RELAYKIT_PORT:-8787}"
+    while port_in_use "$panel_port"; do
+      panel_port="$(next_available_port "$((panel_port + 1))")" || die "没有找到可用端口"
     done
+    panel_password="${RELAYKIT_PASSWORD:-$(random_hex 12)}"
+    subscription_token="${RELAYKIT_TOKEN:-$(random_hex 20)}"
+    info "已自动生成安装参数"
   fi
+
+  [[ "$panel_port" =~ ^[0-9]+$ ]] && ((panel_port >= 1 && panel_port <= 65535)) || die "端口必须是 1-65535"
+  [[ "$panel_password" =~ ^[A-Za-z0-9._@%+=:-]+$ ]] || die "面板密码格式无效"
+  [[ "$subscription_token" =~ ^[A-Za-z0-9._~-]+$ ]] || die "订阅令牌格式无效"
+  info "面板端口：$panel_port；节点将在面板中配置"
 }
 
 copy_application() {
@@ -212,7 +205,7 @@ import_nodes() {
 
 check_base_dependencies
 install_docker
-prompt_settings
+configure_settings
 copy_application
 install_shortcuts
 cd "$INSTALL_DIR"
