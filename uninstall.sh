@@ -43,3 +43,4 @@ else
   printf 'RelayKit 已卸载，配置保留在 %s/data 和 %s/dist。\n' "$INSTALL_DIR" "$INSTALL_DIR"
 fi
 rm -f /usr/local/bin/relaykit-uninstall
+rm -f /usr/local/bin/relaykit-info

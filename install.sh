@@ -143,9 +143,9 @@ copy_application() {
   if [[ "$SOURCE_DIR" != "$INSTALL_DIR" ]]; then
     cp -a "$SOURCE_DIR/src" "$SOURCE_DIR/public" "$INSTALL_DIR/"
     cp -a "$SOURCE_DIR/package.json" "$SOURCE_DIR/Dockerfile" "$SOURCE_DIR/compose.yaml" "$INSTALL_DIR/"
-    cp -a "$SOURCE_DIR/install.sh" "$SOURCE_DIR/uninstall.sh" "$SOURCE_DIR/setup.sh" "$INSTALL_DIR/"
+    cp -a "$SOURCE_DIR/install.sh" "$SOURCE_DIR/uninstall.sh" "$SOURCE_DIR/setup.sh" "$SOURCE_DIR/info.sh" "$INSTALL_DIR/"
   fi
-  chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/setup.sh"
+  chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/setup.sh" "$INSTALL_DIR/info.sh"
   cat >"$INSTALL_DIR/.env" <<EOF
 RELAYKIT_PASSWORD=$panel_password
 RELAYKIT_TOKEN=$subscription_token
@@ -177,14 +177,14 @@ docker inspect -f '{{.State.Running}}' relaykit 2>/dev/null | grep -q true || di
 import_nodes
 
 ln -sf "$INSTALL_DIR/uninstall.sh" /usr/local/bin/relaykit-uninstall
-server_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
-server_ip="${server_ip:-你的VPS-IP}"
+ln -sf "$INSTALL_DIR/info.sh" /usr/local/bin/relaykit-info
+bash "$INSTALL_DIR/info.sh" >"$INSTALL_DIR/relaykit-info.txt"
+chmod 600 "$INSTALL_DIR/relaykit-info.txt"
 
 printf '\n'
 info "RelayKit 安装完成"
-printf '面板地址：  http://%s:%s\n' "$server_ip" "$panel_port"
-printf '面板用户名：任意填写\n'
-printf '面板密码：  %s\n' "$panel_password"
-printf '订阅地址：  http://%s:%s/openclash.yaml?token=%s\n' "$server_ip" "$panel_port" "$subscription_token"
+cat "$INSTALL_DIR/relaykit-info.txt"
 printf '卸载命令：  relaykit-uninstall\n'
+printf '查看信息：  relaykit-info\n'
+printf '信息文件：  %s/relaykit-info.txt\n' "$INSTALL_DIR"
 printf '\n请保存以上信息，并在 VPS 防火墙放行 TCP 端口 %s。\n' "$panel_port"

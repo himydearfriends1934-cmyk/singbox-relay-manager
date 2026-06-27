@@ -39,6 +39,7 @@ bash setup.sh
 ```text
 1. 一键安装 / 更新
 2. 一键卸载
+3. 一键查看面板地址信息
 ```
 
 安装时会询问面板端口、密码、订阅令牌和节点分享链接。每个带默认值的项目直接回车即可采用推荐设置；节点链接回车则跳过，之后可在面板填写。安装成功后会显示面板地址、密码和完整订阅地址。
@@ -54,6 +55,12 @@ sudo bash uninstall.sh
 
 ```bash
 sudo relaykit-uninstall --yes --purge
+```
+
+安装成功时会显示面板地址、登录密码和订阅地址，并保存到仅 root 可读的 `/opt/relaykit/relaykit-info.txt`。以后可重新运行一键安装命令选择菜单 `3`，或直接执行：
+
+```bash
+relaykit-info
 ```
 
 VPS 安装好 Docker 后，在项目目录执行：
