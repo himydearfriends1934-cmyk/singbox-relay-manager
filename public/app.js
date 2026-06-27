@@ -130,12 +130,26 @@ $("#configForm").addEventListener("submit", async (event) => {
   try {
     const hkLink = $("#hkLink").value.trim();
     const hkJson = $("#hkJson").value.trim();
+    const isSubscriptionUrl = (value) => /^https?:\/\//i.test(value);
+    const implicitUsSubscriptions = [];
+    const exits = [...list.children].map((item) => {
+      const link = $(".exit-link", item).value.trim();
+      const text = $(".exit-json", item).value.trim();
+      if (isSubscriptionUrl(link)) {
+        implicitUsSubscriptions.push(link);
+        return null;
+      }
+      return { id: $(".exit-id", item).value.trim(), ...(link ? { link } : { node: parseJson(text, "美国节点") }) };
+    }).filter(Boolean);
+    if (implicitUsSubscriptions.length > 1) throw new Error("一次只能导入一个美国订阅 URL");
+    const implicitHkSubscription = isSubscriptionUrl(hkLink) ? hkLink : "";
+    const implicitUsSubscription = implicitUsSubscriptions[0] || "";
     const body = {
       subscriptionSources: {
-        hkSubscription: $("#hkSubscription").value.trim(),
-        usSubscription: $("#usSubscription").value.trim()
+        hkSubscription: implicitHkSubscription || $("#hkSubscription").value.trim(),
+        usSubscription: implicitUsSubscription || $("#usSubscription").value.trim()
       },
-      importSubscriptions: event.submitter?.id === "importSubscriptions",
+      importSubscriptions: event.submitter?.id === "importSubscriptions" || Boolean(implicitHkSubscription || implicitUsSubscription),
       subscription: {
         includeDirectUs: $("#includeDirect").checked,
         mode: $("#mode").value,
@@ -152,14 +166,10 @@ $("#configForm").addEventListener("submit", async (event) => {
           secret: $("#controllerSecret").value.trim()
         }
       },
-      exits: [...list.children].map((item) => {
-        const link = $(".exit-link", item).value.trim();
-        const text = $(".exit-json", item).value.trim();
-        return { id: $(".exit-id", item).value.trim(), ...(link ? { link } : { node: parseJson(text, "美国节点") }) };
-      })
+      exits
     };
     if ($("#hkJson").dataset.remove === "true") body.removeHk = true;
-    else if (hkLink) body.hk = { link: hkLink };
+    else if (hkLink && !implicitHkSubscription) body.hk = { link: hkLink };
     else if (hkJson) body.hk = { node: parseJson(hkJson, "香港节点") };
     const response = await fetch("/api/config", { method:"PUT", headers:{ "content-type":"application/json" }, body:JSON.stringify(body) });
     const result = await response.json();

@@ -43,8 +43,8 @@
         </section>
         <section class="card accent-hk">
           <div class="card-head"><div><span class="step">01 · RELAY</span><h2>香港中转</h2></div><button class="ghost" type="button" id="clearHk">清除</button></div>
-          <p class="hint">粘贴 sing-box 输出的分享链接；留空会保留当前节点。</p>
-          <label>新分享链接<input id="hkLink" type="password" autocomplete="off" placeholder="ss://  vmess://  vless://  trojan://  hy2://  tuic://"></label>
+          <p class="hint">粘贴单节点分享链接或订阅 URL，系统会自动识别；留空会保留当前节点。</p>
+          <label>新分享链接 / 订阅 URL<input id="hkLink" type="password" autocomplete="off" placeholder="ss://  vmess://  vless://  trojan://  hy2://  tuic://  https://"></label>
           <details><summary>手动参数 / 查看当前配置</summary><textarea id="hkJson" rows="9" spellcheck="false" placeholder='{"type":"ss","server":"hk.example.com","port":443,"cipher":"aes-128-gcm","password":"..."}'></textarea></details>
         </section>
 
@@ -83,7 +83,7 @@
       </form>
     </main>
   </div>
-  <template id="exitTemplate"><article class="exit-item"><div class="exit-top"><label>节点 ID<input class="exit-id" pattern="[a-zA-Z0-9._-]+" placeholder="us-west" required></label><button class="remove" type="button">移除</button></div><label>新分享链接<input class="exit-link" type="password" autocomplete="off" placeholder="留空保留当前参数"></label><details><summary>手动参数 / 查看当前配置</summary><textarea class="exit-json" rows="8" spellcheck="false"></textarea></details></article></template>
+  <template id="exitTemplate"><article class="exit-item"><div class="exit-top"><label>节点 ID<input class="exit-id" pattern="[a-zA-Z0-9._-]+" placeholder="us-west" required></label><button class="remove" type="button">移除</button></div><label>新分享链接 / 订阅 URL<input class="exit-link" type="password" autocomplete="off" placeholder="单节点链接、https://订阅地址，或留空保留"></label><details><summary>手动参数 / 查看当前配置</summary><textarea class="exit-json" rows="8" spellcheck="false"></textarea></details></article></template>
   <template id="groupTemplate"><article class="group-item"><div class="group-grid"><label>组名<input class="group-name" maxlength="40" required></label><label>规则类型<select class="group-preset"><option value="gpt">GPT AI</option><option value="video">视频</option><option value="other">其他（兜底）</option><option value="custom">自定义域名</option></select></label><label>选路方式<select class="group-mode"><option value="auto-manual">自动 + 手动选择</option><option value="auto">纯自动优选</option></select></label><button class="remove group-remove" type="button">移除</button></div><label class="domain-field">自定义域名（每行一个）<textarea class="group-domains" rows="3" placeholder="example.com&#10;example.net"></textarea></label></article></template>
   <script type="module" src="/app.js"></script>
 </body>
