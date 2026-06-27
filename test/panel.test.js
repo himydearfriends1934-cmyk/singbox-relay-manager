@@ -74,6 +74,12 @@ test("panel protects config and saves nodes through the API", async (t) => {
   assert.equal(yamlDownload.headers.get("content-disposition"), 'attachment; filename="openclash.yaml"');
   assert.match(await yamlDownload.text(), /US-WEST-via-HK/);
 
+  const v2rayDownload = await fetch(`${base}/api/sub/v2ray`, { headers: { authorization: auth("panel-secret") } });
+  assert.equal(v2rayDownload.status, 200);
+  assert.match(Buffer.from(await v2rayDownload.text(), "base64").toString("utf8"), /hk\.example\.com/);
+  const providerDownload = await fetch(`${base}/api/provider.yaml`, { headers: { authorization: auth("panel-secret") } });
+  assert.match(await providerDownload.text(), /proxies:/);
+
   assert.equal((await fetch(`${base}/openclash.yaml`)).status, 403);
   const subscription = await fetch(`${base}/openclash.yaml?token=sub-secret`);
   assert.equal(subscription.status, 200);

@@ -14,6 +14,7 @@ function cloneProxy(proxy, name) {
   const cloned = structuredClone(proxy);
   cloned.name = name;
   delete cloned.sourceName;
+  delete cloned.sourceLink;
   delete cloned.id;
   return dropUndefined(cloned);
 }

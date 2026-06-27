@@ -37,7 +37,10 @@ function nodesFromLinks(text) {
   const links = String(text || "").match(LINK_PATTERN) || [];
   const nodes = [];
   for (const link of links) {
-    try { nodes.push(parseShareLink(link.trim())); } catch { /* Ignore unsupported or malformed entries. */ }
+    try {
+      const sourceLink = link.trim();
+      nodes.push({ ...parseShareLink(sourceLink), sourceLink });
+    } catch { /* Ignore unsupported or malformed entries. */ }
   }
   return { nodes, detectedCount: links.length };
 }

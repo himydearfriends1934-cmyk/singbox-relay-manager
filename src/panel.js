@@ -7,8 +7,9 @@ import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG_PATH, DEFAULT_NAMES, DEFAULT_OUTPUT_PATH } from "./defaults.js";
 import { parseShareLink } from "./linkParsers.js";
 import { fetchSubscription } from "./subscriptions.js";
-import { getExitLabels, getExitNodes, validateConfig, writeOpenClash } from "./openclash.js";
+import { buildOpenClashConfig, getExitLabels, getExitNodes, validateConfig, writeOpenClash } from "./openclash.js";
 import { loadConfig, saveConfig } from "./store.js";
+import { toYaml } from "./yaml.js";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PUBLIC_DIR = path.join(ROOT, "public");
@@ -106,6 +107,7 @@ function publicConfig(config) {
       usSubscription: config.sources?.usSubscription || "",
       lastImport: config.sources?.lastImport || null
     },
+    outputs: { linkCount: sourceLinks(config).length },
     validation: validateConfig(config)
   };
 }
@@ -172,7 +174,10 @@ async function getRuntimeStatus(config) {
 
 function parseNodeInput(input, role, id) {
   let node;
-  if (input.link) node = parseShareLink(input.link);
+  if (input.link) {
+    node = parseShareLink(input.link);
+    node.sourceLink = input.link;
+  }
   else if (input.node && typeof input.node === "object") node = structuredClone(input.node);
   else throw new Error(`${role === "hk" ? "香港" : id} 节点缺少分享链接或参数`);
 
@@ -188,6 +193,26 @@ function parseNodeInput(input, role, id) {
     node.name = getExitLabels(node).direct;
   }
   return node;
+}
+
+function sourceLinks(config) {
+  return [config.nodes?.hk, ...getExitNodes(config)]
+    .filter(Boolean)
+    .map((node) => node.sourceLink)
+    .filter(Boolean);
+}
+
+function outputPayload(config, format) {
+  const validation = validateConfig(config);
+  if (!validation.ok) throw new Error(validation.issues.join(" "));
+  if (format === "provider") {
+    return { content: toYaml({ proxies: buildOpenClashConfig(config).proxies }), type: "text/yaml; charset=utf-8", filename: "relaykit-provider.yaml" };
+  }
+  const links = sourceLinks(config);
+  if (links.length === 0) throw new Error("当前节点没有可导出的原始分享链接，请使用 OpenClash YAML");
+  const raw = `${links.join("\n")}\n`;
+  if (format === "v2ray") return { content: Buffer.from(raw).toString("base64"), type: "text/plain; charset=utf-8", filename: "v2ray-subscription.txt" };
+  return { content: raw, type: "text/plain; charset=utf-8", filename: "relaykit-links.txt" };
 }
 
 async function applyPanelConfig(current, body) {
@@ -344,6 +369,18 @@ export function createPanelServer(options = {}) {
           "x-content-type-options": "nosniff"
         });
         response.end(yaml);
+        return;
+      }
+      if (request.method === "GET" && ["/api/sub/v2ray", "/api/sub/raw", "/api/provider.yaml"].includes(url.pathname)) {
+        const format = url.pathname.endsWith("v2ray") ? "v2ray" : url.pathname.endsWith("provider.yaml") ? "provider" : "raw";
+        const output = outputPayload(loadConfig(configPath), format);
+        response.writeHead(200, {
+          "content-type": output.type,
+          "content-disposition": `attachment; filename="${output.filename}"`,
+          "cache-control": "no-store",
+          "x-content-type-options": "nosniff"
+        });
+        response.end(output.content);
         return;
       }
       if (request.method === "PUT" && url.pathname === "/api/config") {

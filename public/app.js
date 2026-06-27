@@ -8,6 +8,7 @@ function cleanNode(node) {
   if (!node) return null;
   const copy = structuredClone(node);
   delete copy.id; delete copy.name; delete copy.sourceName;
+  delete copy.sourceLink;
   return copy;
 }
 
@@ -80,6 +81,11 @@ function render(data) {
   $("#health span").textContent = data.validation.ok ? "配置就绪" : "等待配置";
   $(".download-yaml").classList.toggle("disabled", !data.validation.ok);
   $(".download-yaml").setAttribute("aria-disabled", String(!data.validation.ok));
+  document.querySelectorAll(".output-link").forEach((link) => {
+    const disabled = !data.validation.ok || (link.classList.contains("link-output") && !data.outputs?.linkCount);
+    link.classList.toggle("disabled", disabled);
+    link.setAttribute("aria-disabled", String(disabled));
+  });
   $("#hkStatus").textContent = data.hk ? `${data.hk.server}:${data.hk.port}` : "未配置";
   $("#hkMeta").textContent = data.hk ? data.hk.type.toUpperCase() : "等待节点参数";
   $("#exitCount").textContent = `${data.exits.length} 台`;
@@ -98,6 +104,7 @@ function render(data) {
     ? `上次导入：香港使用 ${imported.hk?.used || 0}/${imported.hk?.count || 0} 个；美国导入 ${imported.us?.used || 0}/${imported.us?.count || 0} 个${imported.us?.filtered ? `（过滤 ${imported.us.filtered} 个）` : ""}`
     : "";
   list.replaceChildren(); data.exits.forEach(addExit);
+  if (data.exits.length === 0) addExit({ id: "us-main" });
   groupList.replaceChildren(); (data.subscription.groups || []).forEach(addGroup);
 }
 
@@ -112,6 +119,10 @@ function parseJson(text, label) {
 }
 
 $("#addExit").onclick = () => addExit({ id: `us-${list.children.length + 1}` });
+$("#toggleAdvanced").onclick = () => {
+  const visible = document.body.classList.toggle("show-advanced");
+  $("#toggleAdvanced").textContent = visible ? "收起高级设置" : "高级设置";
+};
 document.querySelectorAll(".add-preset").forEach((button) => {
   button.onclick = () => {
     const preset = button.dataset.preset;

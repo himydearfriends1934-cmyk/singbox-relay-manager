@@ -122,6 +122,8 @@ node src/panel.js
 
 ## 面板使用
 
+默认首页采用三步简易模式：填写一个香港中转、添加一个或多个美国落地，然后选择输出格式。订阅批量导入、策略分组和实时控制器统一收进“高级设置”。
+
 - 订阅自动导入：分别填写香港和美国订阅 URL，可识别普通分享链接列表、Base64 订阅以及 Clash/Mihomo YAML。订阅 URL 也可直接粘贴到普通分享链接框，系统会按 `http/https` 自动切换导入方式。香港默认使用第一个有效节点，美国自动导入全部有效节点，并显示订阅总数、导入数和过滤数。
 - 香港中转：粘贴一条分享链接，或展开“手动参数”编辑 JSON。
 - 美国落地：支持多台，每台使用唯一 ID，例如 `us-west`、`us-east`。
@@ -129,6 +131,7 @@ node src/panel.js
 - 支持 `ss`、`vmess`、`vless`、`trojan`、`hysteria2/hy2`、`tuic` 分享链接。
 - 每次保存都会校验参数；香港与至少一台美国节点齐全时，自动刷新 `dist/openclash.yaml`。
 - YAML 文件：配置完整后可点击面板底部“下载 YAML”，直接获得 `openclash.yaml` 并手动上传到 OpenClash。
+- 输出格式：支持 V2Ray Base64 订阅、OpenClash 完整 YAML、Clash Proxy Provider YAML 和通用原始链接列表。
 - 页面密码输入框只是替换链接，留空会保留页面中显示的当前参数。
 - 实时状态：填写 OpenClash/Mihomo 的 `external-controller` 地址与 Secret 后，面板每 3 秒显示各策略组当前节点和活跃连接链路。香港 VPS 需要能访问该控制器，推荐使用 Tailscale/WireGuard 内网地址，不要把控制器无保护地暴露到公网。
 
