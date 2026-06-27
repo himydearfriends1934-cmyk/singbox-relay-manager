@@ -7,7 +7,7 @@
 在香港 VPS 的 **root 终端**运行：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/himydearfriends1934-cmyk/singbox-relay-manager/master/bootstrap.sh)
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/himydearfriends1934-cmyk/singbox-relay-manager@master/bootstrap.sh)
 ```
 
 脚本启动后的执行顺序：
@@ -18,7 +18,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/himydearfriends1934-cmyk/sin
 4. 自动选择面板端口；默认端口被占用时自动寻找下一个可用端口。
 5. 自动生成面板密码和订阅令牌，节点统一在安装完成后的网页面板配置。
 
-> 上面的远程入口本身需要系统已有 `curl` 才能下载脚本；绝大多数 VPS 镜像默认自带。若没有，先执行 `apt-get update && apt-get install -y curl`，之后其余依赖均由安装器自动处理。
+> 主入口使用 jsDelivr CDN，避免部分 VPS 无法访问 `raw.githubusercontent.com`。远程入口本身需要系统已有 `curl`；若没有，先执行 `apt-get update && apt-get install -y curl`，之后其余依赖均由安装器自动处理。
 
 安装完成后，随时输入以下简易命令即可重新打开管理菜单：
 

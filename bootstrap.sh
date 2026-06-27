@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-archive_url="https://github.com/himydearfriends1934-cmyk/singbox-relay-manager/archive/refs/heads/master.tar.gz"
+archive_url="https://codeload.github.com/himydearfriends1934-cmyk/singbox-relay-manager/tar.gz/refs/heads/master"
 temp_dir="$(mktemp -d)"
 cleanup() { rm -rf -- "$temp_dir"; }
 trap cleanup EXIT
