@@ -332,6 +332,20 @@ export function createPanelServer(options = {}) {
         json(response, 200, await getRuntimeStatus(loadConfig(configPath)));
         return;
       }
+      if (request.method === "GET" && url.pathname === "/api/openclash.yaml") {
+        const config = loadConfig(configPath);
+        const validation = validateConfig(config);
+        if (!validation.ok) throw new Error(validation.issues.join(" "));
+        const { yaml } = writeOpenClash(config, outputPath);
+        response.writeHead(200, {
+          "content-type": "text/yaml; charset=utf-8",
+          "content-disposition": 'attachment; filename="openclash.yaml"',
+          "cache-control": "no-store",
+          "x-content-type-options": "nosniff"
+        });
+        response.end(yaml);
+        return;
+      }
       if (request.method === "PUT" && url.pathname === "/api/config") {
         const next = await applyPanelConfig(loadConfig(configPath), await readBody(request));
         const validation = validateConfig(next);

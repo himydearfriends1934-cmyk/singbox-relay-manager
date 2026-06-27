@@ -128,6 +128,7 @@ node src/panel.js
 - 业务分组：可添加 GPT AI、视频、其他兜底或自定义域名组；每组支持纯自动或“自动 + 手动选择”。
 - 支持 `ss`、`vmess`、`vless`、`trojan`、`hysteria2/hy2`、`tuic` 分享链接。
 - 每次保存都会校验参数；香港与至少一台美国节点齐全时，自动刷新 `dist/openclash.yaml`。
+- YAML 文件：配置完整后可点击面板底部“下载 YAML”，直接获得 `openclash.yaml` 并手动上传到 OpenClash。
 - 页面密码输入框只是替换链接，留空会保留页面中显示的当前参数。
 - 实时状态：填写 OpenClash/Mihomo 的 `external-controller` 地址与 Secret 后，面板每 3 秒显示各策略组当前节点和活跃连接链路。香港 VPS 需要能访问该控制器，推荐使用 Tailscale/WireGuard 内网地址，不要把控制器无保护地暴露到公网。
 

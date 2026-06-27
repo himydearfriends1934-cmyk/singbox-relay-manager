@@ -78,6 +78,8 @@ function render(data) {
   config = data;
   $("#health").classList.toggle("ok", data.validation.ok);
   $("#health span").textContent = data.validation.ok ? "配置就绪" : "等待配置";
+  $(".download-yaml").classList.toggle("disabled", !data.validation.ok);
+  $(".download-yaml").setAttribute("aria-disabled", String(!data.validation.ok));
   $("#hkStatus").textContent = data.hk ? `${data.hk.server}:${data.hk.port}` : "未配置";
   $("#hkMeta").textContent = data.hk ? data.hk.type.toUpperCase() : "等待节点参数";
   $("#exitCount").textContent = `${data.exits.length} 台`;

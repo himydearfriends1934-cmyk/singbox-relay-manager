@@ -69,6 +69,11 @@ test("panel protects config and saves nodes through the API", async (t) => {
   assert.match(fs.readFileSync(outputPath, "utf8"), /US-WEST-via-HK/);
   assert.match(fs.readFileSync(outputPath, "utf8"), /name: GPT AI/);
 
+  const yamlDownload = await fetch(`${base}/api/openclash.yaml`, { headers: { authorization: auth("panel-secret") } });
+  assert.equal(yamlDownload.status, 200);
+  assert.equal(yamlDownload.headers.get("content-disposition"), 'attachment; filename="openclash.yaml"');
+  assert.match(await yamlDownload.text(), /US-WEST-via-HK/);
+
   assert.equal((await fetch(`${base}/openclash.yaml`)).status, 403);
   const subscription = await fetch(`${base}/openclash.yaml?token=sub-secret`);
   assert.equal(subscription.status, 200);
