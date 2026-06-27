@@ -27,6 +27,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/himydearfriends1934-cmyk/sin
 rk
 ```
 
+如果旧版本曾在 Docker 启动阶段中断，导致提示 `rk: command not found`，可以先执行 `bash /opt/relaykit/setup.sh` 进入菜单；新版安装器会在 Docker 启动前创建 `rk`，后续即使容器启动失败也仍可使用该命令。
+
 ```text
 手机 / 电脑 → OpenWrt + OpenClash → 香港中转 → 美国落地 → 美国出口
 ```

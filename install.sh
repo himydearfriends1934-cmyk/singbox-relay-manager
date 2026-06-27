@@ -194,6 +194,14 @@ EOF
   chmod 600 "$INSTALL_DIR/.env"
 }
 
+install_shortcuts() {
+  install -d -m 755 /usr/local/bin
+  ln -sf "$INSTALL_DIR/setup.sh" /usr/local/bin/rk
+  ln -sf "$INSTALL_DIR/info.sh" /usr/local/bin/relaykit-info
+  ln -sf "$INSTALL_DIR/uninstall.sh" /usr/local/bin/relaykit-uninstall
+  info "快捷命令已创建：rk"
+}
+
 import_nodes() {
   [[ -n "$hk_link" ]] && docker exec relaykit node src/cli.js import hk --link "$hk_link"
   local index
@@ -206,6 +214,7 @@ check_base_dependencies
 install_docker
 prompt_settings
 copy_application
+install_shortcuts
 cd "$INSTALL_DIR"
 cleanup_stale_containers
 compose up -d --build
@@ -216,10 +225,6 @@ for _ in {1..30}; do
 done
 docker inspect -f '{{.State.Running}}' relaykit 2>/dev/null | grep -q true || die "容器启动失败，请运行：cd $INSTALL_DIR && docker compose logs"
 import_nodes
-
-ln -sf "$INSTALL_DIR/uninstall.sh" /usr/local/bin/relaykit-uninstall
-ln -sf "$INSTALL_DIR/info.sh" /usr/local/bin/relaykit-info
-ln -sf "$INSTALL_DIR/setup.sh" /usr/local/bin/rk
 bash "$INSTALL_DIR/info.sh" >"$INSTALL_DIR/relaykit-info.txt"
 chmod 600 "$INSTALL_DIR/relaykit-info.txt"
 
