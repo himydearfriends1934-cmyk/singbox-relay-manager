@@ -18,6 +18,8 @@ export const DEFAULT_SUBSCRIPTION = {
   logLevel: "info",
   testUrl: "http://www.gstatic.com/generate_204",
   interval: 300,
+  selectionMode: "auto-manual",
+  groups: [],
   rules: [
     "DOMAIN-SUFFIX,local,DIRECT",
     "IP-CIDR,127.0.0.0/8,DIRECT",

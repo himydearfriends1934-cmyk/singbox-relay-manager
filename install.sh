@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INSTALL_DIR="${RELAYKIT_INSTALL_DIR:-/opt/relaykit}"
+[[ "$INSTALL_DIR" == /* && "$INSTALL_DIR" != "/" ]] || { printf '安装目录必须是安全的绝对路径。\n' >&2; exit 1; }
+
+green='\033[0;32m'; yellow='\033[1;33m'; red='\033[0;31m'; reset='\033[0m'
+info() { printf "${green}✓${reset} %s\n" "$*"; }
+warn() { printf "${yellow}!${reset} %s\n" "$*"; }
+die() { printf "${red}错误：${reset}%s\n" "$*" >&2; exit 1; }
+
+if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+  die "请使用 root 运行：sudo bash install.sh"
+fi
+
+install_docker() {
+  if command -v docker >/dev/null 2>&1; then return; fi
+  warn "未检测到 Docker，正在自动安装……"
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+    DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin 2>/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose
+  elif command -v dnf >/dev/null 2>&1; then
+    dnf install -y docker docker-compose-plugin
+  elif command -v yum >/dev/null 2>&1; then
+    yum install -y docker docker-compose-plugin
+  elif command -v apk >/dev/null 2>&1; then
+    apk add --no-cache docker docker-cli-compose
+  else
+    die "无法识别系统包管理器，请先安装 Docker 后重试"
+  fi
+  if command -v systemctl >/dev/null 2>&1; then systemctl enable --now docker; else service docker start; fi
+}
+
+compose() {
+  if docker compose version >/dev/null 2>&1; then docker compose "$@"; else docker-compose "$@"; fi
+}
+
+random_hex() {
+  if command -v openssl >/dev/null 2>&1; then openssl rand -hex "$1"; else od -An -N "$1" -tx1 /dev/urandom | tr -d ' \n'; fi
+}
+
+prompt_settings() {
+  printf '\n安装参数（直接回车使用括号内默认值）\n'
+  printf '%s\n' '--------------------------------------'
+  read -r -p '面板端口 [8787]: ' panel_port
+  panel_port="${panel_port:-8787}"
+  [[ "$panel_port" =~ ^[0-9]+$ ]] && ((panel_port >= 1 && panel_port <= 65535)) || die "端口必须是 1-65535"
+
+  read -r -s -p '面板密码 [回车自动生成]: ' panel_password; printf '\n'
+  if [[ -z "$panel_password" ]]; then panel_password="$(random_hex 12)"; fi
+  [[ "$panel_password" =~ ^[A-Za-z0-9._@%+=:-]+$ ]] || die "面板密码只能使用字母、数字和 ._@%+=:-"
+  read -r -p '订阅令牌 [回车自动生成]: ' subscription_token
+  subscription_token="${subscription_token:-$(random_hex 20)}"
+  [[ "$subscription_token" =~ ^[A-Za-z0-9._~-]+$ ]] || die "订阅令牌只能使用字母、数字和 ._~-"
+
+  read -r -p '安装后立即录入节点？[Y/n]: ' configure_nodes
+  configure_nodes="${configure_nodes:-Y}"
+  hk_link=''; us_ids=(); us_links=()
+  if [[ "$configure_nodes" =~ ^[Yy]$ ]]; then
+    read -r -p '香港中转分享链接 [回车跳过，稍后在面板填写]: ' hk_link
+    while true; do
+      read -r -p '美国落地分享链接 [回车结束节点录入]: ' us_link
+      [[ -z "$us_link" ]] && break
+      read -r -p '该落地节点 ID [us-main]: ' us_id
+      us_ids+=("${us_id:-us-main}"); us_links+=("$us_link")
+      read -r -p '继续添加美国落地？[y/N]: ' add_more
+      [[ "${add_more:-N}" =~ ^[Yy]$ ]] || break
+    done
+  fi
+}
+
+copy_application() {
+  install -d -m 755 "$INSTALL_DIR" "$INSTALL_DIR/data" "$INSTALL_DIR/dist"
+  if [[ "$SOURCE_DIR" != "$INSTALL_DIR" ]]; then
+    cp -a "$SOURCE_DIR/src" "$SOURCE_DIR/public" "$INSTALL_DIR/"
+    cp -a "$SOURCE_DIR/package.json" "$SOURCE_DIR/Dockerfile" "$SOURCE_DIR/compose.yaml" "$INSTALL_DIR/"
+    cp -a "$SOURCE_DIR/install.sh" "$SOURCE_DIR/uninstall.sh" "$SOURCE_DIR/setup.sh" "$INSTALL_DIR/"
+  fi
+  chmod +x "$INSTALL_DIR/install.sh" "$INSTALL_DIR/uninstall.sh" "$INSTALL_DIR/setup.sh"
+  cat >"$INSTALL_DIR/.env" <<EOF
+RELAYKIT_PASSWORD=$panel_password
+RELAYKIT_TOKEN=$subscription_token
+RELAYKIT_PORT=$panel_port
+EOF
+  chmod 600 "$INSTALL_DIR/.env"
+}
+
+import_nodes() {
+  [[ -n "$hk_link" ]] && docker exec relaykit node src/cli.js import hk --link "$hk_link"
+  local index
+  for index in "${!us_links[@]}"; do
+    docker exec relaykit node src/cli.js add-us "${us_ids[$index]}" --link "${us_links[$index]}"
+  done
+}
+
+install_docker
+command -v docker >/dev/null 2>&1 || die "Docker 安装失败"
+prompt_settings
+copy_application
+cd "$INSTALL_DIR"
+compose up -d --build
+
+for _ in {1..30}; do
+  if docker inspect -f '{{.State.Running}}' relaykit 2>/dev/null | grep -q true; then break; fi
+  sleep 1
+done
+docker inspect -f '{{.State.Running}}' relaykit 2>/dev/null | grep -q true || die "容器启动失败，请运行：cd $INSTALL_DIR && docker compose logs"
+import_nodes
+
+ln -sf "$INSTALL_DIR/uninstall.sh" /usr/local/bin/relaykit-uninstall
+server_ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
+server_ip="${server_ip:-你的VPS-IP}"
+
+printf '\n'
+info "RelayKit 安装完成"
+printf '面板地址：  http://%s:%s\n' "$server_ip" "$panel_port"
+printf '面板用户名：任意填写\n'
+printf '面板密码：  %s\n' "$panel_password"
+printf '订阅地址：  http://%s:%s/openclash.yaml?token=%s\n' "$server_ip" "$panel_port" "$subscription_token"
+printf '卸载命令：  relaykit-uninstall\n'
+printf '\n请保存以上信息，并在 VPS 防火墙放行 TCP 端口 %s。\n' "$panel_port"
