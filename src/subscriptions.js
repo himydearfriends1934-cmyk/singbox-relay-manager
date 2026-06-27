@@ -224,5 +224,12 @@ export async function fetchSubscription(subscriptionUrl) {
     signal: AbortSignal.timeout(15000)
   });
   if (!response.ok) throw new Error(`订阅下载失败：HTTP ${response.status}`);
-  return parseSubscriptionText(await readLimitedBody(response));
+  const text = await readLimitedBody(response);
+  try {
+    return parseSubscriptionText(text);
+  } catch (error) {
+    const contentType = String(response.headers.get("content-type") || "unknown").split(";", 1)[0];
+    console.warn(`[RelayKit safe diagnostic] status=${response.status} content-type=${contentType} bytes=${Buffer.byteLength(text)} detail=${error.message}`);
+    throw error;
+  }
 }
