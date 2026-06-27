@@ -6,7 +6,7 @@ const SUPPORTED_TYPES = new Set([
   "anytls", "mieru", "snell", "socks5", "http", "wireguard", "ssh", "masque",
   "trusttunnel", "openvpn", "sudoku", "tailscale"
 ]);
-const LINK_PATTERN = /(?:ss|vmess|vless|trojan|hysteria2|hy2|tuic):\/\/[^\s"'<>]+/gi;
+const LINK_PATTERN = /(?:ss|ssr|vmess|vless|trojan|hysteria|hysteria2|hy2|tuic|anytls):\/\/[^\s"'<>]+/gi;
 const MAX_SUBSCRIPTION_SIZE = 5 * 1024 * 1024;
 
 function normalizeClashNode(proxy) {
@@ -105,6 +105,39 @@ function deduplicate(nodes) {
   });
 }
 
+function parseSsd(text) {
+  const match = String(text || "").trim().match(/^ssd:\/\/([^\s]+)/i);
+  if (!match) return null;
+  try {
+    const encoded = match[1].replace(/-/g, "+").replace(/_/g, "/");
+    const document = JSON.parse(Buffer.from(encoded, "base64").toString("utf8"));
+    const servers = Array.isArray(document?.servers) ? document.servers : [];
+    const nodes = servers.map((server, index) => normalizeClashNode({
+      name: server.remarks || `${document.airport || "SSD"}-${index + 1}`,
+      type: "ss", server: server.server, port: server.port || document.port,
+      cipher: server.encryption || document.encryption,
+      password: server.password || document.password,
+      plugin: server.plugin, "plugin-opts": server.plugin_options, udp: true
+    })).filter(Boolean);
+    return { nodes, detectedCount: servers.length };
+  } catch { return null; }
+}
+
+function safeFormatHint(text) {
+  const raw = String(text || "").trim();
+  if (/^\s*</.test(raw)) return "服务器返回了 HTML 页面（订阅地址可能不正确或已过期）";
+  const schemes = [...new Set([...raw.matchAll(/\b([a-z][a-z0-9+.-]{1,20}):\/\//gi)].map((match) => match[1].toLowerCase()))];
+  if (schemes.length) return `检测到协议：${schemes.slice(0, 8).join(", ")}`;
+  try {
+    const document = parseYaml(raw);
+    if (document && typeof document === "object") {
+      const keys = Object.keys(document).slice(0, 8);
+      if (keys.length) return `检测到结构字段：${keys.join(", ")}`;
+    }
+  } catch { /* Use the generic hint below. */ }
+  return `响应大小 ${Buffer.byteLength(raw)} 字节，格式未知`;
+}
+
 export function parseSubscriptionText(input) {
   const text = String(input || "").replace(/^\uFEFF/, "").trim();
   if (!text) throw new Error("订阅内容为空");
@@ -115,6 +148,14 @@ export function parseSubscriptionText(input) {
   let detectedCount = parsedLinks.detectedCount;
   let format = "links";
   if (nodes.length === 0) {
+    const ssd = parseSsd(candidate);
+    if (ssd) {
+      nodes = ssd.nodes;
+      detectedCount = ssd.detectedCount;
+      format = "ssd";
+    }
+  }
+  if (nodes.length === 0) {
     const decoded = decodeBase64Subscription(text);
     if (decoded) {
       candidate = decoded.replace(/^\uFEFF/, "").trim();
@@ -122,6 +163,14 @@ export function parseSubscriptionText(input) {
       nodes = parsedLinks.nodes;
       detectedCount = parsedLinks.detectedCount;
       format = "base64";
+      if (nodes.length === 0) {
+        const ssd = parseSsd(candidate);
+        if (ssd) {
+          nodes = ssd.nodes;
+          detectedCount = ssd.detectedCount;
+          format = "base64+ssd";
+        }
+      }
     }
   }
   if (nodes.length === 0) {
@@ -143,7 +192,7 @@ export function parseSubscriptionText(input) {
     }
   }
   nodes = deduplicate(nodes);
-  if (nodes.length === 0) throw new Error("订阅中没有识别到支持的节点");
+  if (nodes.length === 0) throw new Error(`订阅中没有识别到支持的节点。${safeFormatHint(candidate)}`);
   return { nodes, format, detectedCount, filteredCount: Math.max(0, detectedCount - nodes.length) };
 }
 

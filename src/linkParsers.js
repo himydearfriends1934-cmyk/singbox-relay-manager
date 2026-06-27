@@ -1,4 +1,4 @@
-const URL_TYPES = new Set(["vless", "trojan", "hysteria2", "hy2", "tuic"]);
+const URL_TYPES = new Set(["vless", "trojan", "hysteria", "hysteria2", "hy2", "tuic", "anytls"]);
 
 function decodeBase64Url(input) {
   const normalized = input.replace(/-/g, "+").replace(/_/g, "/");
@@ -110,6 +110,25 @@ function parseVmess(link) {
   return node;
 }
 
+function parseSsr(link) {
+  const decoded = decodeBase64Url(link.slice("ssr://".length).split("#")[0]);
+  const [main, query = ""] = decoded.split("/?");
+  const parts = main.split(":");
+  if (parts.length < 6) throw new Error("Invalid ssr link");
+  const [server, port, protocol, cipher, obfs, ...passwordParts] = parts;
+  const params = new URLSearchParams(query);
+  const decodeParam = (name) => {
+    const value = params.get(name);
+    if (!value) return undefined;
+    try { return decodeBase64Url(value); } catch { return value; }
+  };
+  return dropUndefined({
+    name: decodeParam("remarks"), type: "ssr", server, port: asPort(port), protocol, cipher, obfs,
+    password: decodeBase64Url(passwordParts.join(":")),
+    "protocol-param": decodeParam("protoparam"), "obfs-param": decodeParam("obfsparam"), udp: true
+  });
+}
+
 function parseUrlProxy(link) {
   const parsed = new URL(link);
   const params = parsed.searchParams;
@@ -165,6 +184,21 @@ function parseUrlProxy(link) {
     node["udp-relay-mode"] = params.get("udp_relay_mode") || params.get("udp-relay-mode") || undefined;
   }
 
+  if (normalizedType === "hysteria") {
+    node.auth = params.get("auth") || params.get("auth_str") || decodeURIComponent(parsed.username || "") || undefined;
+    node.sni = params.get("peer") || params.get("sni") || undefined;
+    node["skip-cert-verify"] = boolFromParam(params.get("insecure"));
+    node.protocol = params.get("protocol") || undefined;
+    node.up = params.get("upmbps") || params.get("up") || undefined;
+    node.down = params.get("downmbps") || params.get("down") || undefined;
+  }
+
+  if (normalizedType === "anytls") {
+    node.password = decodeURIComponent(parsed.username || parsed.password || "");
+    node.sni = params.get("sni") || undefined;
+    node["skip-cert-verify"] = boolFromParam(params.get("insecure"));
+  }
+
   return dropUndefined(node);
 }
 
@@ -182,6 +216,7 @@ function dropUndefined(value) {
 export function parseShareLink(link) {
   const value = String(link || "").trim();
   if (value.startsWith("ss://")) return parseSs(value);
+  if (value.startsWith("ssr://")) return parseSsr(value);
   if (value.startsWith("vmess://")) return parseVmess(value);
   if ([...URL_TYPES].some((type) => value.startsWith(`${type}://`))) return parseUrlProxy(value);
   throw new Error("Unsupported link. Supported: ss, vmess, vless, trojan, hysteria2/hy2, tuic.");

@@ -18,6 +18,23 @@ test("parses plain and base64 share-link subscriptions", () => {
   assert.equal(base64.nodes[1].type, "trojan");
 });
 
+test("parses SSR and SSD subscriptions", () => {
+  const ssrPayload = [
+    "ssr.example.com", "443", "auth_sha1_v4", "aes-128-gcm", "plain",
+    Buffer.from("secret").toString("base64url")
+  ].join(":") + `/?remarks=${Buffer.from("SSR Node").toString("base64url")}`;
+  const parsedSsr = parseSubscriptionText(`ssr://${Buffer.from(ssrPayload).toString("base64url")}`);
+  assert.equal(parsedSsr.nodes[0].type, "ssr");
+  assert.equal(parsedSsr.nodes[0].server, "ssr.example.com");
+
+  const document = { airport: "Test", port: 443, encryption: "aes-128-gcm", password: "secret",
+    servers: [{ server: "ssd.example.com", remarks: "SSD Node" }] };
+  const parsedSsd = parseSubscriptionText(`ssd://${Buffer.from(JSON.stringify(document)).toString("base64url")}`);
+  assert.equal(parsedSsd.format, "ssd");
+  assert.equal(parsedSsd.nodes[0].type, "ss");
+  assert.equal(parsedSsd.nodes[0].server, "ssd.example.com");
+});
+
 test("parses Clash YAML subscriptions and filters unsupported proxies", () => {
   const result = parseSubscriptionText(`
 proxies:
