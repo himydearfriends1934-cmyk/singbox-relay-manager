@@ -12,7 +12,7 @@ bash <(curl -fsSL https://raw.githubusercontent.com/himydearfriends1934-cmyk/sin
 
 脚本启动后的执行顺序：
 
-1. 检查 `curl`、`tar`、`openssl`、Docker 和 Docker Compose。
+1. 检查 `curl`、`tar`、`openssl`、Docker 和 Docker Compose v2；旧版 `docker-compose 1.x` 不会被继续使用。
 2. 发现缺失依赖时，根据 Debian/Ubuntu、CentOS/RHEL 或 Alpine 的包管理器自动安装。
 3. 依赖全部就绪后，检查面板端口；端口被占用时自动推荐下一个可用端口。
 4. 进入密码、订阅令牌和节点配置。

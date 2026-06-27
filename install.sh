@@ -46,7 +46,25 @@ check_base_dependencies() {
 }
 
 has_compose() {
-  docker compose version >/dev/null 2>&1 || command -v docker-compose >/dev/null 2>&1
+  docker compose version >/dev/null 2>&1
+}
+
+install_compose_plugin() {
+  local machine compose_arch compose_version plugin_dir temp_file
+  machine="$(uname -m)"
+  case "$machine" in
+    x86_64|amd64) compose_arch="x86_64" ;;
+    aarch64|arm64) compose_arch="aarch64" ;;
+    armv7l|armv7) compose_arch="armv7" ;;
+    *) die "暂不支持自动安装 Compose 的 CPU 架构：$machine" ;;
+  esac
+  compose_version="v5.1.2"
+  plugin_dir="/usr/local/lib/docker/cli-plugins"
+  temp_file="$(mktemp)"
+  install -d -m 755 "$plugin_dir"
+  curl -fSL "https://github.com/docker/compose/releases/download/${compose_version}/docker-compose-linux-${compose_arch}" -o "$temp_file"
+  install -m 755 "$temp_file" "$plugin_dir/docker-compose"
+  rm -f "$temp_file"
 }
 
 install_docker() {
@@ -57,11 +75,15 @@ install_docker() {
     else install_packages docker; fi
   fi
   if ! has_compose; then
-    warn "未检测到 Docker Compose，正在自动安装"
+    warn "未检测到 Docker Compose v2，正在自动安装"
     if command -v apt-get >/dev/null 2>&1; then
-      DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin 2>/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose
-    elif command -v apk >/dev/null 2>&1; then install_packages docker-cli-compose
-    else install_packages docker-compose-plugin; fi
+      DEBIAN_FRONTEND=noninteractive apt-get install -y docker-compose-plugin 2>/dev/null || true
+    elif command -v apk >/dev/null 2>&1; then
+      install_packages docker-cli-compose || true
+    else
+      install_packages docker-compose-plugin || true
+    fi
+    has_compose || install_compose_plugin
   fi
   if command -v systemctl >/dev/null 2>&1; then systemctl enable --now docker; else service docker start; fi
   command -v docker >/dev/null 2>&1 || die "Docker 安装失败"
@@ -70,7 +92,7 @@ install_docker() {
 }
 
 compose() {
-  if docker compose version >/dev/null 2>&1; then docker compose "$@"; else docker-compose "$@"; fi
+  docker compose "$@"
 }
 
 random_hex() {
@@ -167,6 +189,7 @@ install_docker
 prompt_settings
 copy_application
 cd "$INSTALL_DIR"
+docker rm -f relaykit >/dev/null 2>&1 || true
 compose up -d --build
 
 for _ in {1..30}; do
