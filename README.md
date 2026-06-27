@@ -91,7 +91,13 @@ http://香港VPS的IP:8787
 
 用户名可以任意填写，密码是 `.env` 中的 `RELAYKIT_PASSWORD`。建议在防火墙只放行自己的 IP，正式长期使用时再通过 Caddy/Nginx 配置 HTTPS。
 
-订阅地址：
+V2Ray 订阅地址：
+
+```text
+http://香港VPS的IP:8787/v2ray.txt?token=你的RELAYKIT_TOKEN
+```
+
+OpenClash 订阅地址：
 
 ```text
 http://香港VPS的IP:8787/openclash.yaml?token=你的RELAYKIT_TOKEN
@@ -136,7 +142,7 @@ node src/panel.js
 - 支持 `ss`、`vmess`、`vless`、`trojan`、`hysteria2/hy2`、`tuic` 分享链接。
 - 每次保存都会校验参数；香港与至少一台美国节点齐全时，自动刷新 `dist/openclash.yaml`。
 - YAML 文件：配置完整后可点击面板底部“下载 YAML”，直接获得 `openclash.yaml` 并手动上传到 OpenClash。
-- 输出格式：支持 V2Ray Base64 订阅、OpenClash 完整 YAML、Clash Proxy Provider YAML 和通用原始链接列表。
+- 输出格式：当前优先提供 V2Ray Base64 订阅和 OpenClash 完整 YAML 两种固定订阅链接，其他格式后续逐步增加。
 - 页面密码输入框只是替换链接，留空会保留页面中显示的当前参数。
 - 实时状态：填写 OpenClash/Mihomo 的 `external-controller` 地址与 Secret 后，面板每 3 秒显示各策略组当前节点和活跃连接链路。香港 VPS 需要能访问该控制器，推荐使用 Tailscale/WireGuard 内网地址，不要把控制器无保护地暴露到公网。
 

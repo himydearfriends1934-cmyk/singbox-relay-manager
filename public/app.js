@@ -77,6 +77,8 @@ async function refreshRuntime() {
 
 function render(data) {
   config = data;
+  if (data.subscriptionUrls?.v2ray) $("#v2rayOutput").href = data.subscriptionUrls.v2ray;
+  if (data.subscriptionUrls?.openclash) $("#openclashOutput").href = data.subscriptionUrls.openclash;
   $("#health").classList.toggle("ok", data.validation.ok);
   $("#health span").textContent = data.validation.ok ? "配置就绪" : "等待配置";
   $(".download-yaml").classList.toggle("disabled", !data.validation.ok);

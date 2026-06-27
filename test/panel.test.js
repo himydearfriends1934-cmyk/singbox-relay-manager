@@ -90,6 +90,15 @@ test("panel protects config and saves nodes through the API", async (t) => {
   const subscription = await fetch(`${base}/openclash.yaml?token=sub-secret`);
   assert.equal(subscription.status, 200);
   assert.match(await subscription.text(), /dialer-proxy: HK-Relay/);
+  assert.equal((await fetch(`${base}/v2ray.txt`)).status, 403);
+  const v2raySubscription = await fetch(`${base}/v2ray.txt?token=sub-secret`);
+  assert.equal(v2raySubscription.status, 200);
+  assert.match(Buffer.from(await v2raySubscription.text(), "base64").toString("utf8"), /hk\.example\.com/);
+
+  const configResponse = await fetch(`${base}/api/config`, { headers: { authorization: auth("panel-secret") } });
+  const publicConfig = await configResponse.json();
+  assert.equal(publicConfig.subscriptionUrls.v2ray, `${base}/v2ray.txt?token=sub-secret`);
+  assert.equal(publicConfig.subscriptionUrls.openclash, `${base}/openclash.yaml?token=sub-secret`);
 
   const runtimeResponse = await fetch(`${base}/api/runtime`, { headers: { authorization: auth("panel-secret") } });
   const runtime = await runtimeResponse.json();

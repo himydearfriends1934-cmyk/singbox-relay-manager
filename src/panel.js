@@ -6,6 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { DEFAULT_CONFIG_PATH, DEFAULT_NAMES, DEFAULT_OUTPUT_PATH } from "./defaults.js";
 import { parseShareLink } from "./linkParsers.js";
+import { nodeToShareLink } from "./linkSerializers.js";
 import { fetchSubscription } from "./subscriptions.js";
 import { buildOpenClashConfig, getExitLabels, getExitNodes, validateConfig, writeOpenClash } from "./openclash.js";
 import { loadConfig, saveConfig } from "./store.js";
@@ -56,6 +57,17 @@ function json(response, status, value) {
     "x-content-type-options": "nosniff"
   });
   response.end(JSON.stringify(value));
+}
+
+function subscriptionUrls(request, token) {
+  const forwardedProto = String(request.headers["x-forwarded-proto"] || "").split(",")[0].trim();
+  const protocol = forwardedProto || (request.socket.encrypted ? "https" : "http");
+  const origin = `${protocol}://${request.headers.host || "localhost"}`;
+  const suffix = token ? `?token=${encodeURIComponent(token)}` : "";
+  return {
+    v2ray: `${origin}/v2ray.txt${suffix}`,
+    openclash: `${origin}/openclash.yaml${suffix}`
+  };
 }
 
 function readBody(request) {
@@ -199,10 +211,10 @@ function parseNodeInput(input, role, id) {
 }
 
 function sourceLinks(config) {
-  return [config.nodes?.hk, ...getExitNodes(config)]
+  return [...new Set([config.nodes?.hk, ...getExitNodes(config)]
     .filter(Boolean)
-    .map((node) => node.sourceLink)
-    .filter(Boolean);
+    .map((node) => node.sourceLink || nodeToShareLink(node))
+    .filter(Boolean))];
 }
 
 function outputPayload(config, format) {
@@ -375,6 +387,21 @@ export function createPanelServer(options = {}) {
         return;
       }
 
+      if (["/v2ray.txt", "/sub/v2ray"].includes(url.pathname)) {
+        const subscriptionAuthorized = token
+          ? safeEqual(url.searchParams.get("token"), token)
+          : authorized(request, password);
+        if (!subscriptionAuthorized) {
+          response.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
+          response.end("Forbidden\n");
+          return;
+        }
+        const output = outputPayload(loadConfig(configPath), "v2ray");
+        response.writeHead(200, { "content-type": output.type, "cache-control": "no-store", "x-content-type-options": "nosniff" });
+        response.end(output.content);
+        return;
+      }
+
       if (!authorized(request, password)) {
         response.writeHead(401, { "www-authenticate": 'Basic realm="RelayKit Panel", charset="UTF-8"' });
         response.end("Authentication required\n");
@@ -382,7 +409,7 @@ export function createPanelServer(options = {}) {
       }
 
       if (request.method === "GET" && url.pathname === "/api/config") {
-        json(response, 200, publicConfig(loadConfig(configPath)));
+        json(response, 200, { ...publicConfig(loadConfig(configPath)), subscriptionUrls: subscriptionUrls(request, token) });
         return;
       }
       if (request.method === "GET" && url.pathname === "/api/runtime") {
@@ -420,7 +447,7 @@ export function createPanelServer(options = {}) {
         const validation = validateConfig(next);
         saveConfig(next, configPath);
         if (validation.ok) writeOpenClash(next, outputPath);
-        json(response, 200, { ok: true, generated: validation.ok, ...publicConfig(loadConfig(configPath)) });
+        json(response, 200, { ok: true, generated: validation.ok, ...publicConfig(loadConfig(configPath)), subscriptionUrls: subscriptionUrls(request, token) });
         return;
       }
       if (request.method === "GET" && serveStatic(url.pathname, response)) return;

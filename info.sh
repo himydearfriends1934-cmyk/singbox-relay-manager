@@ -31,7 +31,8 @@ RelayKit 面板信息
 面板地址：  http://$server_ip:$panel_port
 面板用户名：任意填写
 面板密码：  ${RELAYKIT_PASSWORD:-未设置}
-订阅地址：  http://$server_ip:$panel_port/openclash.yaml?token=${RELAYKIT_TOKEN:-未设置}
+V2Ray 订阅：  http://$server_ip:$panel_port/v2ray.txt?token=${RELAYKIT_TOKEN:-未设置}
+OpenClash 订阅：  http://$server_ip:$panel_port/openclash.yaml?token=${RELAYKIT_TOKEN:-未设置}
 安装目录：  $INSTALL_DIR
 
 EOF
